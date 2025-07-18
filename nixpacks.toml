@@ -1,0 +1,17 @@
+[phases.setup]
+nixPkgs = ['php81', 'php81Packages.composer']
+
+[phases.install]
+cmds = [
+  'composer install --no-dev --optimize-autoloader',
+  'mkdir -p uploads',
+  'chmod 777 uploads'
+]
+
+[phases.build]
+cmds = [
+  'php -v'
+]
+
+[start]
+cmd = 'php -S 0.0.0.0:$PORT -t .'
