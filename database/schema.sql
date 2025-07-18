@@ -208,6 +208,70 @@ INSERT INTO system_settings (setting_key, setting_value, description) VALUES
 ('registration_enabled', 'true', 'Allow new user registrations'),
 ('maintenance_mode', 'false', 'Enable maintenance mode');
 
+-- Resources table (for mentor uploaded resources)
+CREATE TABLE resources (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    mentor_id INT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    file_name VARCHAR(255) NOT NULL,
+    file_size INT NOT NULL,
+    file_type VARCHAR(20) NOT NULL,
+    category VARCHAR(100),
+    tags TEXT,
+    is_public BOOLEAN DEFAULT FALSE,
+    download_count INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (mentor_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_mentor_resources (mentor_id, created_at),
+    INDEX idx_public_resources (is_public, created_at),
+    INDEX idx_category (category),
+    FULLTEXT(title, description, tags)
+);
+
+-- Resource shares table (for sharing resources with specific mentees)
+CREATE TABLE resource_shares (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    resource_id INT NOT NULL,
+    mentee_id INT NOT NULL,
+    shared_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE,
+    FOREIGN KEY (mentee_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_resource_share (resource_id, mentee_id),
+    INDEX idx_mentee_resources (mentee_id, shared_at)
+);
+
+-- Resource downloads table (for tracking downloads and analytics)
+CREATE TABLE resource_downloads (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    resource_id INT NOT NULL,
+    user_id INT NOT NULL,
+    ip_address VARCHAR(45),
+    downloaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_resource_downloads (resource_id, downloaded_at),
+    INDEX idx_user_downloads (user_id, downloaded_at)
+);
+
+-- Reports table (for various system reports)
+CREATE TABLE reports (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    report_type ENUM('mentorship_summary', 'user_activity', 'resource_usage', 'system_stats') NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    parameters JSON,
+    generated_by INT,
+    file_path VARCHAR(255),
+    status ENUM('generating', 'completed', 'failed') DEFAULT 'generating',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP NULL,
+    FOREIGN KEY (generated_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_report_type (report_type, created_at),
+    INDEX idx_report_status (status, created_at)
+);
+
 -- Create views for common queries
 CREATE VIEW active_mentorships_view AS
 SELECT 
