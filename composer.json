@@ -1,0 +1,19 @@
+{
+    "name": "aces/menteego",
+    "description": "Mentor–mentee matching platform for ACES",
+    "type": "project",
+    "require": {
+        "php": ">=8.1",
+        "illuminate/database": "^10.0",
+        "vlucas/phpdotenv": "^5.5",
+        "phpmailer/phpmailer": "^6.9"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "scripts": {
+        "start": "php -S localhost:8000 -t public"
+    }
+}
