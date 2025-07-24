@@ -1,4 +1,6 @@
 <?php
+require_once '../models/User.php';
+require_once '../models/Mentorship.php';
 require_once '../config/app.php';
 require_once __DIR__ . '/../middleware/auth.php';
 
@@ -46,40 +48,19 @@ try {
         exit;
     }
 
-    // Check if request already exists
-    $existingRequest = $mentorshipModel->getExistingRequest($userId, $mentorId);
-    if ($existingRequest) {
-        if ($existingRequest['status'] === 'pending') {
-            echo json_encode(['success' => false, 'message' => 'You already have a pending request with this mentor']);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'You already have a request with this mentor']);
-        }
-        exit;
-    }
-
-    // Check if mentorship already exists
-    $existingMentorship = $mentorshipModel->getActiveMentorship($userId, $mentorId);
-    if ($existingMentorship) {
-        echo json_encode(['success' => false, 'message' => 'You already have an active mentorship with this mentor']);
-        exit;
-    }
-
-    // Create the request
-    $requestData = [
-        'mentee_id' => $userId,
-        'mentor_id' => $mentorId,
+    // Send the mentorship request using the model's sendRequest method
+    $result = $mentorshipModel->sendRequest($userId, $mentorId, [
         'message' => $message,
+        'meeting_type' => 'online', // or get from POST if you want
         'goals' => $goals,
-        'status' => 'pending'
-    ];
-
-    $requestId = $mentorshipModel->createRequest($requestData);
-    
-    if ($requestId) {
-        echo json_encode(['success' => true, 'message' => 'Mentorship request sent successfully']);
+        'duration_weeks' => 12 // or get from POST if you want
+    ]);
+    if ($result['success']) {
+        echo json_encode(['success' => true, 'message' => $result['message']]);
     } else {
-        echo json_encode(['success' => false, 'message' => 'Failed to send request. Please try again.']);
+        echo json_encode(['success' => false, 'message' => $result['message']]);
     }
+    exit;
 
 } catch (Exception $e) {
     error_log('Mentorship request error: ' . $e->getMessage());
