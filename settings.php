@@ -20,15 +20,27 @@ $pageTitle = 'Settings - Menteego';
 // Placeholder: handle form submission (implement logic as needed)
 $success = $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Example: Change password
     $currentPassword = $_POST['current_password'] ?? '';
     $newPassword = $_POST['new_password'] ?? '';
     $confirmPassword = $_POST['confirm_password'] ?? '';
-    if ($newPassword && $newPassword === $confirmPassword) {
-        // TODO: Implement password update logic
-        $success = 'Settings updated successfully! (Password logic not implemented)';
+
+    if (!$currentPassword || !$newPassword || !$confirmPassword) {
+        $error = 'All fields are required.';
+    } elseif ($newPassword !== $confirmPassword) {
+        $error = 'New passwords do not match.';
     } else {
-        $error = 'Passwords do not match or are empty.';
+        // Fetch current user data
+        $user = $userModel->getUserById($userId);
+        if (!$user || !verifyPassword($currentPassword, $user['password_hash'])) {
+            $error = 'Current password is incorrect.';
+        } else {
+            $result = $userModel->updatePassword($userId, $newPassword);
+            if ($result['success']) {
+                $success = 'Password updated successfully!';
+            } else {
+                $error = $result['message'];
+            }
+        }
     }
 }
 ?>
