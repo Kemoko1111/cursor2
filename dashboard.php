@@ -325,7 +325,7 @@ $pageTitle = 'Dashboard - Menteego';
                             <a href="/messages.php" class="btn btn-outline-info">
                                 <i class="fas fa-comments me-2"></i>All Messages
                             </a>
-                            <a href="/profile.php" class="btn btn-outline-secondary">
+                            <a href="/edit-profile.php" class="btn btn-outline-secondary">
                                 <i class="fas fa-user-edit me-2"></i>Edit Profile
                             </a>
                         </div>

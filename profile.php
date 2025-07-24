@@ -140,9 +140,9 @@ $pageTitle = $isOwnProfile ? 'My Profile - Menteego' : $profileUser['first_name'
                 </div>
                 <?php if ($isOwnProfile): ?>
                     <div class="col-auto">
-                        <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#editModal">
+                        <a href="/edit-profile.php" class="btn btn-light">
                             <i class="fas fa-edit me-2"></i>Edit Profile
-                        </button>
+                        </a>
                     </div>
                 <?php endif; ?>
             </div>
@@ -348,104 +348,7 @@ $pageTitle = $isOwnProfile ? 'My Profile - Menteego' : $profileUser['first_name'
         </div>
     </div>
 
-    <!-- Edit Profile Modal -->
-    <?php if ($isOwnProfile): ?>
-        <div class="modal fade" id="editModal" tabindex="-1">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Edit Profile</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <form method="POST">
-                        <div class="modal-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="first_name" class="form-label">First Name</label>
-                                        <input type="text" class="form-control" id="first_name" name="first_name" 
-                                               value="<?php echo htmlspecialchars($profileUser['first_name']); ?>" required>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="last_name" class="form-label">Last Name</label>
-                                        <input type="text" class="form-control" id="last_name" name="last_name" 
-                                               value="<?php echo htmlspecialchars($profileUser['last_name']); ?>" required>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="bio" class="form-label">Bio</label>
-                                <textarea class="form-control" id="bio" name="bio" rows="3" 
-                                          placeholder="Tell others about yourself..."><?php echo htmlspecialchars($profileUser['bio']); ?></textarea>
-                            </div>
-                            
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="department" class="form-label">Department</label>
-                                        <input type="text" class="form-control" id="department" name="department" 
-                                               value="<?php echo htmlspecialchars($profileUser['department']); ?>" required>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="year_of_study" class="form-label">Year of Study</label>
-                                        <select class="form-select" id="year_of_study" name="year_of_study" required>
-                                            <option value="1st" <?php echo $profileUser['year_of_study'] === '1st' ? 'selected' : ''; ?>>1st Year</option>
-                                            <option value="2nd" <?php echo $profileUser['year_of_study'] === '2nd' ? 'selected' : ''; ?>>2nd Year</option>
-                                            <option value="3rd" <?php echo $profileUser['year_of_study'] === '3rd' ? 'selected' : ''; ?>>3rd Year</option>
-                                            <option value="4th" <?php echo $profileUser['year_of_study'] === '4th' ? 'selected' : ''; ?>>4th Year</option>
-                                            <option value="graduate" <?php echo $profileUser['year_of_study'] === 'graduate' ? 'selected' : ''; ?>>Graduate</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="skills" class="form-label">Skills</label>
-                                <input type="text" class="form-control" id="skills" name="skills" 
-                                       value="<?php echo htmlspecialchars($profileUser['skills']); ?>"
-                                       placeholder="e.g., Python, Web Development, Data Analysis (comma separated)">
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="interests" class="form-label">Interests</label>
-                                <input type="text" class="form-control" id="interests" name="interests" 
-                                       value="<?php echo htmlspecialchars($profileUser['interests']); ?>"
-                                       placeholder="e.g., Machine Learning, Mobile Apps, Game Development (comma separated)">
-                            </div>
-                            
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="linkedin_url" class="form-label">LinkedIn URL</label>
-                                        <input type="url" class="form-control" id="linkedin_url" name="linkedin_url" 
-                                               value="<?php echo htmlspecialchars($profileUser['linkedin_url']); ?>"
-                                               placeholder="https://linkedin.com/in/username">
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="github_url" class="form-label">GitHub URL</label>
-                                        <input type="url" class="form-control" id="github_url" name="github_url" 
-                                               value="<?php echo htmlspecialchars($profileUser['github_url']); ?>"
-                                               placeholder="https://github.com/username">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="submit" class="btn btn-primary">Save Changes</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    <?php endif; ?>
+
 
     <!-- Mentorship Request Modal -->
     <?php if (!$isOwnProfile && $profileUser['role'] === 'mentor' && $userRole === 'mentee'): ?>
