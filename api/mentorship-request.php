@@ -64,6 +64,6 @@ try {
 
 } catch (Exception $e) {
     error_log('Mentorship request error: ' . $e->getMessage());
-    echo json_encode(['success' => false, 'message' => 'An error occurred. Please try again.']);
+    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }
 ?>
