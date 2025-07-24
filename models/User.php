@@ -437,5 +437,102 @@ class User {
         // Clear session
         session_destroy();
     }
+
+    public function getAvailableMentors($menteeId, $filters = []) {
+        $query = "SELECT DISTINCT u.*, 
+                         COALESCE(AVG(r.rating), 0) as rating,
+                         COUNT(r.id) as review_count
+                  FROM " . $this->table . " u
+                  LEFT JOIN reviews r ON u.id = r.mentor_id
+                  LEFT JOIN mentorships m ON u.id = m.mentor_id AND m.mentee_id = :mentee_id
+                  WHERE u.role = 'mentor' 
+                    AND u.status = 'active' 
+                    AND u.email_verified = 1
+                    AND u.id != :mentee_id
+                    AND m.id IS NULL"; // Not already in mentorship with this mentee
+
+        $params = [':mentee_id' => $menteeId];
+
+        // Add filters
+        if (!empty($filters['department'])) {
+            $query .= " AND u.department = :department";
+            $params[':department'] = $filters['department'];
+        }
+
+        if (!empty($filters['year_of_study'])) {
+            $query .= " AND u.year_of_study = :year_of_study";
+            $params[':year_of_study'] = $filters['year_of_study'];
+        }
+
+        if (!empty($filters['search'])) {
+            $query .= " AND (u.first_name LIKE :search OR u.last_name LIKE :search 
+                           OR u.bio LIKE :search OR u.skills LIKE :search)";
+            $params[':search'] = '%' . $filters['search'] . '%';
+        }
+
+        $query .= " GROUP BY u.id ORDER BY rating DESC, u.created_at DESC";
+
+        $stmt = $this->conn->prepare($query);
+        foreach ($params as $param => $value) {
+            $stmt->bindValue($param, $value);
+        }
+        $stmt->execute();
+        
+        return $stmt->fetchAll();
+    }
+
+    public function getAllDepartments() {
+        $query = "SELECT DISTINCT department FROM " . $this->table . " 
+                  WHERE department IS NOT NULL AND department != '' 
+                  ORDER BY department";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+        
+        $departments = [];
+        while ($row = $stmt->fetch()) {
+            $departments[] = $row['department'];
+        }
+        
+        return $departments;
+    }
+
+    public function updateProfile($userId, $updateData) {
+        try {
+            $fields = [];
+            $params = [':user_id' => $userId];
+            
+            foreach ($updateData as $field => $value) {
+                $fields[] = "$field = :$field";
+                $params[":$field"] = $value;
+            }
+            
+            $query = "UPDATE " . $this->table . " SET " . implode(', ', $fields) . " WHERE id = :user_id";
+            
+            $stmt = $this->conn->prepare($query);
+            foreach ($params as $param => $value) {
+                $stmt->bindValue($param, $value);
+            }
+            
+            return $stmt->execute();
+        } catch (Exception $e) {
+            error_log('Update profile error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function updateProfileImage($userId, $filename) {
+        try {
+            $query = "UPDATE " . $this->table . " SET profile_image = :filename WHERE id = :user_id";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':filename', $filename);
+            $stmt->bindParam(':user_id', $userId);
+            
+            return $stmt->execute();
+        } catch (Exception $e) {
+            error_log('Update profile image error: ' . $e->getMessage());
+            return false;
+        }
+    }
 }
 ?>

@@ -392,5 +392,182 @@ class Mentorship {
         
         return $stmt->execute();
     }
+
+    public function getExistingRequest($menteeId, $mentorId) {
+        $query = "SELECT * FROM " . $this->requestTable . " 
+                  WHERE mentee_id = :mentee_id AND mentor_id = :mentor_id 
+                  ORDER BY created_at DESC LIMIT 1";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':mentee_id', $menteeId);
+        $stmt->bindParam(':mentor_id', $mentorId);
+        $stmt->execute();
+        
+        return $stmt->fetch();
+    }
+
+    public function getActiveMentorship($menteeId, $mentorId) {
+        $query = "SELECT * FROM " . $this->mentorshipTable . " 
+                  WHERE mentee_id = :mentee_id AND mentor_id = :mentor_id AND status = 'active'";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':mentee_id', $menteeId);
+        $stmt->bindParam(':mentor_id', $mentorId);
+        $stmt->execute();
+        
+        return $stmt->fetch();
+    }
+
+    public function createRequest($requestData) {
+        try {
+            $query = "INSERT INTO " . $this->requestTable . " 
+                     (mentee_id, mentor_id, message, goals, status, created_at) 
+                     VALUES (:mentee_id, :mentor_id, :message, :goals, :status, NOW())";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':mentee_id', $requestData['mentee_id']);
+            $stmt->bindParam(':mentor_id', $requestData['mentor_id']);
+            $stmt->bindParam(':message', $requestData['message']);
+            $stmt->bindParam(':goals', $requestData['goals']);
+            $stmt->bindParam(':status', $requestData['status']);
+            
+            if ($stmt->execute()) {
+                return $this->conn->lastInsertId();
+            }
+            
+            return false;
+        } catch (Exception $e) {
+            error_log('Create request error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function getMentorRequests($mentorId, $status = null) {
+        $query = "SELECT mr.*, u.first_name, u.last_name, u.email, u.department, 
+                         u.year_of_study, u.profile_image
+                  FROM " . $this->requestTable . " mr
+                  JOIN users u ON mr.mentee_id = u.id
+                  WHERE mr.mentor_id = :mentor_id";
+        
+        $params = [':mentor_id' => $mentorId];
+        
+        if ($status) {
+            $query .= " AND mr.status = :status";
+            $params[':status'] = $status;
+        }
+        
+        $query .= " ORDER BY mr.created_at DESC";
+        
+        $stmt = $this->conn->prepare($query);
+        foreach ($params as $param => $value) {
+            $stmt->bindValue($param, $value);
+        }
+        $stmt->execute();
+        
+        return $stmt->fetchAll();
+    }
+
+    public function getMenteeRequests($menteeId, $status = null) {
+        $query = "SELECT mr.*, u.first_name, u.last_name, u.email, u.department, 
+                         u.year_of_study, u.profile_image
+                  FROM " . $this->requestTable . " mr
+                  JOIN users u ON mr.mentor_id = u.id
+                  WHERE mr.mentee_id = :mentee_id";
+        
+        $params = [':mentee_id' => $menteeId];
+        
+        if ($status) {
+            $query .= " AND mr.status = :status";
+            $params[':status'] = $status;
+        }
+        
+        $query .= " ORDER BY mr.created_at DESC";
+        
+        $stmt = $this->conn->prepare($query);
+        foreach ($params as $param => $value) {
+            $stmt->bindValue($param, $value);
+        }
+        $stmt->execute();
+        
+        return $stmt->fetchAll();
+    }
+
+    public function updateRequestStatus($requestId, $status, $mentorId) {
+        try {
+            $query = "UPDATE " . $this->requestTable . " 
+                     SET status = :status, updated_at = NOW() 
+                     WHERE id = :request_id AND mentor_id = :mentor_id";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':status', $status);
+            $stmt->bindParam(':request_id', $requestId);
+            $stmt->bindParam(':mentor_id', $mentorId);
+            
+            if ($stmt->execute()) {
+                // If accepted, create mentorship
+                if ($status === 'accept') {
+                    $request = $this->getRequestById($requestId);
+                    if ($request) {
+                        $mentorshipData = [
+                            'request_id' => $requestId,
+                            'mentee_id' => $request['mentee_id'],
+                            'mentor_id' => $request['mentor_id'],
+                            'start_date' => date('Y-m-d'),
+                            'end_date' => date('Y-m-d', strtotime('+3 months'))
+                        ];
+                        $this->createMentorship($mentorshipData);
+                    }
+                }
+                
+                return true;
+            }
+            
+            return false;
+        } catch (Exception $e) {
+            error_log('Update request status error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function getRequestById($requestId) {
+        $query = "SELECT * FROM " . $this->requestTable . " WHERE id = :request_id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':request_id', $requestId);
+        $stmt->execute();
+        
+        return $stmt->fetch();
+    }
+
+    public function getMentorshipById($mentorshipId) {
+        $query = "SELECT * FROM " . $this->mentorshipTable . " WHERE id = :mentorship_id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':mentorship_id', $mentorshipId);
+        $stmt->execute();
+        
+        return $stmt->fetch();
+    }
+
+    public function getUserMentorships($userId) {
+        $query = "SELECT m.*, 
+                         CASE 
+                           WHEN m.mentor_id = :user_id THEN u2.first_name 
+                           ELSE u1.first_name 
+                         END as other_first_name,
+                         CASE 
+                           WHEN m.mentor_id = :user_id THEN u2.last_name 
+                           ELSE u1.last_name 
+                         END as other_last_name
+                  FROM " . $this->mentorshipTable . " m
+                  JOIN users u1 ON m.mentor_id = u1.id
+                  JOIN users u2 ON m.mentee_id = u2.id
+                  WHERE m.mentor_id = :user_id OR m.mentee_id = :user_id
+                  ORDER BY m.created_at DESC";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':user_id', $userId);
+        $stmt->execute();
+        
+        return $stmt->fetchAll();
+    }
 }
 ?>

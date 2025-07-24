@@ -18,6 +18,9 @@ $mentorshipModel = new Mentorship();
 
 // Get current user data
 $currentUser = $userModel->getUserById($userId);
+if (!$currentUser) {
+    redirect('/auth/login.php');
+}
 
 // Get filter parameters
 $department = $_GET['department'] ?? '';
@@ -25,14 +28,44 @@ $yearOfStudy = $_GET['year_of_study'] ?? '';
 $search = $_GET['search'] ?? '';
 
 // Get available mentors
-$mentors = $userModel->getAvailableMentors($userId, [
-    'department' => $department,
-    'year_of_study' => $yearOfStudy,
-    'search' => $search
-]);
+try {
+    $mentors = $userModel->getAvailableMentors($userId, [
+        'department' => $department,
+        'year_of_study' => $yearOfStudy,
+        'search' => $search
+    ]);
+} catch (Exception $e) {
+    error_log('Browse mentors error: ' . $e->getMessage());
+    // Fallback to basic query if advanced method fails
+    try {
+        $mentors = $userModel->getAllMentors();
+        // Apply basic filtering in PHP if needed
+        if (!empty($search) || !empty($department) || !empty($yearOfStudy)) {
+            $mentors = array_filter($mentors, function($mentor) use ($search, $department, $yearOfStudy) {
+                $matchesSearch = empty($search) || 
+                    stripos($mentor['first_name'], $search) !== false ||
+                    stripos($mentor['last_name'], $search) !== false ||
+                    stripos($mentor['bio'], $search) !== false;
+                
+                $matchesDepartment = empty($department) || $mentor['department'] === $department;
+                $matchesYear = empty($yearOfStudy) || $mentor['year_of_study'] === $yearOfStudy;
+                
+                return $matchesSearch && $matchesDepartment && $matchesYear;
+            });
+        }
+    } catch (Exception $e2) {
+        error_log('Fallback mentors error: ' . $e2->getMessage());
+        $mentors = [];
+    }
+}
 
 // Get all departments for filter
-$departments = $userModel->getAllDepartments();
+try {
+    $departments = $userModel->getAllDepartments();
+} catch (Exception $e) {
+    error_log('Get departments error: ' . $e->getMessage());
+    $departments = [];
+}
 
 $pageTitle = 'Browse Mentors - Menteego';
 ?>

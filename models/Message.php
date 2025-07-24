@@ -207,17 +207,136 @@ class Message {
     }
 
     private function createNotification($userId, $type, $title, $message, $relatedId = null) {
-        $query = "INSERT INTO notifications (user_id, type, title, message, related_id) 
-                 VALUES (:user_id, :type, :title, :message, :related_id)";
+        try {
+            $query = "INSERT INTO notifications (user_id, type, title, message, related_id) 
+                     VALUES (:user_id, :type, :title, :message, :related_id)";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':user_id', $userId);
+            $stmt->bindParam(':type', $type);
+            $stmt->bindParam(':title', $title);
+            $stmt->bindParam(':message', $message);
+            $stmt->bindParam(':related_id', $relatedId);
+            
+            return $stmt->execute();
+        } catch (Exception $e) {
+            // Don't fail if notifications table doesn't exist
+            return true;
+        }
+    }
+
+    public function getMentorshipMessages($mentorshipId) {
+        $query = "SELECT m.*, u.first_name, u.last_name
+                  FROM " . $this->table . " m
+                  JOIN users u ON m.sender_id = u.id
+                  WHERE m.mentorship_id = :mentorship_id
+                  ORDER BY m.created_at ASC";
         
         $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':user_id', $userId);
-        $stmt->bindParam(':type', $type);
-        $stmt->bindParam(':title', $title);
-        $stmt->bindParam(':message', $message);
-        $stmt->bindParam(':related_id', $relatedId);
+        $stmt->bindParam(':mentorship_id', $mentorshipId);
+        $stmt->execute();
         
-        return $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    public function getDirectMessages($userId1, $userId2) {
+        $query = "SELECT m.*, u.first_name, u.last_name
+                  FROM " . $this->table . " m
+                  JOIN users u ON m.sender_id = u.id
+                  WHERE (m.sender_id = :user1 AND m.receiver_id = :user2)
+                     OR (m.sender_id = :user2 AND m.receiver_id = :user1)
+                  ORDER BY m.created_at ASC";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':user1', $userId1);
+        $stmt->bindParam(':user2', $userId2);
+        $stmt->execute();
+        
+        return $stmt->fetchAll();
+    }
+
+    public function sendMentorshipMessage($senderId, $mentorshipId, $content) {
+        try {
+            // Get mentorship details to find receiver
+            $mentorshipQuery = "SELECT mentor_id, mentee_id FROM mentorships WHERE id = :mentorship_id";
+            $stmt = $this->conn->prepare($mentorshipQuery);
+            $stmt->bindParam(':mentorship_id', $mentorshipId);
+            $stmt->execute();
+            $mentorship = $stmt->fetch();
+            
+            if (!$mentorship) {
+                return false;
+            }
+            
+            $receiverId = ($mentorship['mentor_id'] == $senderId) ? $mentorship['mentee_id'] : $mentorship['mentor_id'];
+            
+            $query = "INSERT INTO " . $this->table . " 
+                     (mentorship_id, sender_id, receiver_id, content, created_at) 
+                     VALUES (:mentorship_id, :sender_id, :receiver_id, :content, NOW())";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':mentorship_id', $mentorshipId);
+            $stmt->bindParam(':sender_id', $senderId);
+            $stmt->bindParam(':receiver_id', $receiverId);
+            $stmt->bindParam(':content', $content);
+            
+            return $stmt->execute();
+        } catch (Exception $e) {
+            error_log('Send mentorship message error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function sendDirectMessage($senderId, $receiverId, $content) {
+        try {
+            $query = "INSERT INTO " . $this->table . " 
+                     (sender_id, receiver_id, content, created_at) 
+                     VALUES (:sender_id, :receiver_id, :content, NOW())";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':sender_id', $senderId);
+            $stmt->bindParam(':receiver_id', $receiverId);
+            $stmt->bindParam(':content', $content);
+            
+            return $stmt->execute();
+        } catch (Exception $e) {
+            error_log('Send direct message error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function markMentorshipMessagesAsRead($mentorshipId, $userId) {
+        try {
+            $query = "UPDATE " . $this->table . " 
+                     SET is_read = 1 
+                     WHERE mentorship_id = :mentorship_id AND receiver_id = :user_id AND is_read = 0";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':mentorship_id', $mentorshipId);
+            $stmt->bindParam(':user_id', $userId);
+            
+            return $stmt->execute();
+        } catch (Exception $e) {
+            error_log('Mark messages as read error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function markDirectMessagesAsRead($userId, $otherUserId) {
+        try {
+            $query = "UPDATE " . $this->table . " 
+                     SET is_read = 1 
+                     WHERE sender_id = :other_user AND receiver_id = :user_id AND is_read = 0";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':other_user', $otherUserId);
+            $stmt->bindParam(':user_id', $userId);
+            
+            return $stmt->execute();
+        } catch (Exception $e) {
+            error_log('Mark direct messages as read error: ' . $e->getMessage());
+            return false;
+        }
     }
 }
 ?>
