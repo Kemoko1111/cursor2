@@ -1,19 +1,39 @@
 <?php
 require_once 'config/app.php';
-require_once __DIR__ . '/middleware/auth.php';
 
-if (!isset($_SESSION['user_id'])) redirect('/auth/login.php');
+// Start session if not started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Check authentication
+if (!isset($_SESSION['user_id'])) {
+    header('Location: /auth/login.php');
+    exit();
+}
 
 $userId = $_SESSION['user_id'];
-$userRole = $_SESSION['user_role'];
+$userRole = $_SESSION['user_role'] ?? '';
 
-// Initialize models
-$userModel = new User();
+// Initialize database and models
+try {
+    $database = new Database();
+    $conn = $database->getConnection();
+    $userModel = new User();
+} catch (Exception $e) {
+    die('Database connection error. Please try again later.');
+}
 
 // Get current user data
-$currentUser = $userModel->getUserById($userId);
-if (!$currentUser) {
-    redirect('/auth/login.php');
+try {
+    $currentUser = $userModel->getUserById($userId);
+    if (!$currentUser) {
+        session_destroy();
+        header('Location: /auth/login.php');
+        exit();
+    }
+} catch (Exception $e) {
+    die('Error loading user data. Please try again later.');
 }
 
 // Handle profile update
@@ -21,29 +41,58 @@ $success = '';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $updateData = [
-        'first_name' => sanitizeInput($_POST['first_name']),
-        'last_name' => sanitizeInput($_POST['last_name']),
-        'bio' => sanitizeInput($_POST['bio']),
-        'department' => sanitizeInput($_POST['department']),
-        'year_of_study' => sanitizeInput($_POST['year_of_study']),
-        'skills' => sanitizeInput($_POST['skills']),
-        'interests' => sanitizeInput($_POST['interests']),
-        'linkedin_url' => sanitizeInput($_POST['linkedin_url']),
-        'github_url' => sanitizeInput($_POST['github_url'])
-    ];
-    
-    // Validate required fields
-    if (empty($updateData['first_name']) || empty($updateData['last_name']) || 
-        empty($updateData['department']) || empty($updateData['year_of_study'])) {
-        $error = "Please fill in all required fields.";
-    } else {
-        if ($userModel->updateProfile($userId, $updateData)) {
-            $success = "Profile updated successfully!";
-            $currentUser = $userModel->getUserById($userId); // Refresh data
+    try {
+        // Sanitize input data
+        $updateData = [];
+        
+        // Only update fields that exist in the form
+        if (isset($_POST['first_name'])) $updateData['first_name'] = sanitizeInput($_POST['first_name']);
+        if (isset($_POST['last_name'])) $updateData['last_name'] = sanitizeInput($_POST['last_name']);
+        if (isset($_POST['bio'])) $updateData['bio'] = sanitizeInput($_POST['bio']);
+        if (isset($_POST['department'])) $updateData['department'] = sanitizeInput($_POST['department']);
+        if (isset($_POST['year_of_study'])) $updateData['year_of_study'] = sanitizeInput($_POST['year_of_study']);
+        if (isset($_POST['skills'])) $updateData['skills'] = sanitizeInput($_POST['skills']);
+        if (isset($_POST['interests'])) $updateData['interests'] = sanitizeInput($_POST['interests']);
+        if (isset($_POST['linkedin_url'])) $updateData['linkedin_url'] = sanitizeInput($_POST['linkedin_url']);
+        if (isset($_POST['github_url'])) $updateData['github_url'] = sanitizeInput($_POST['github_url']);
+        
+        // Validate required fields
+        if (empty($updateData['first_name']) || empty($updateData['last_name'])) {
+            $error = "First name and last name are required.";
         } else {
-            $error = "Failed to update profile. Please try again.";
+            // Try to update using the model first
+            $updateSuccess = false;
+            
+            if (method_exists($userModel, 'updateProfile')) {
+                $updateSuccess = $userModel->updateProfile($userId, $updateData);
+            } else {
+                // Fallback: Direct database update
+                $fields = [];
+                $params = [':user_id' => $userId];
+                
+                foreach ($updateData as $field => $value) {
+                    $fields[] = "$field = :$field";
+                    $params[":$field"] = $value;
+                }
+                
+                if (!empty($fields)) {
+                    $query = "UPDATE users SET " . implode(', ', $fields) . " WHERE id = :user_id";
+                    $stmt = $conn->prepare($query);
+                    $updateSuccess = $stmt->execute($params);
+                }
+            }
+            
+            if ($updateSuccess) {
+                $success = "Profile updated successfully!";
+                // Refresh user data
+                $currentUser = $userModel->getUserById($userId);
+            } else {
+                $error = "Failed to update profile. Please try again.";
+            }
         }
+    } catch (Exception $e) {
+        $error = "An error occurred while updating your profile: " . $e->getMessage();
+        error_log('Profile update error: ' . $e->getMessage());
     }
 }
 
@@ -197,14 +246,14 @@ $pageTitle = 'Edit Profile - Menteego';
                                     <div class="mb-3">
                                         <label for="first_name" class="form-label">First Name <span class="text-danger">*</span></label>
                                         <input type="text" class="form-control" id="first_name" name="first_name" 
-                                               value="<?php echo htmlspecialchars($currentUser['first_name']); ?>" required>
+                                               value="<?php echo htmlspecialchars($currentUser['first_name'] ?? ''); ?>" required>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label for="last_name" class="form-label">Last Name <span class="text-danger">*</span></label>
                                         <input type="text" class="form-control" id="last_name" name="last_name" 
-                                               value="<?php echo htmlspecialchars($currentUser['last_name']); ?>" required>
+                                               value="<?php echo htmlspecialchars($currentUser['last_name'] ?? ''); ?>" required>
                                     </div>
                                 </div>
                             </div>
@@ -213,7 +262,7 @@ $pageTitle = 'Edit Profile - Menteego';
                             <div class="mb-3">
                                 <label for="bio" class="form-label">Bio</label>
                                 <textarea class="form-control" id="bio" name="bio" rows="4" 
-                                          placeholder="Tell others about yourself, your background, and what you're passionate about..."><?php echo htmlspecialchars($currentUser['bio']); ?></textarea>
+                                          placeholder="Tell others about yourself, your background, and what you're passionate about..."><?php echo htmlspecialchars($currentUser['bio'] ?? ''); ?></textarea>
                                 <div class="form-text">Share your story, achievements, and what makes you unique.</div>
                             </div>
                             
@@ -223,20 +272,20 @@ $pageTitle = 'Edit Profile - Menteego';
                                     <div class="mb-3">
                                         <label for="department" class="form-label">Department <span class="text-danger">*</span></label>
                                         <input type="text" class="form-control" id="department" name="department" 
-                                               value="<?php echo htmlspecialchars($currentUser['department']); ?>" 
-                                               placeholder="e.g., Computer Science" required>
+                                               value="<?php echo htmlspecialchars($currentUser['department'] ?? ''); ?>" 
+                                               placeholder="e.g., Computer Science">
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label for="year_of_study" class="form-label">Year of Study <span class="text-danger">*</span></label>
-                                        <select class="form-select" id="year_of_study" name="year_of_study" required>
+                                        <select class="form-select" id="year_of_study" name="year_of_study">
                                             <option value="">Select Year</option>
-                                            <option value="1st" <?php echo $currentUser['year_of_study'] === '1st' ? 'selected' : ''; ?>>1st Year</option>
-                                            <option value="2nd" <?php echo $currentUser['year_of_study'] === '2nd' ? 'selected' : ''; ?>>2nd Year</option>
-                                            <option value="3rd" <?php echo $currentUser['year_of_study'] === '3rd' ? 'selected' : ''; ?>>3rd Year</option>
-                                            <option value="4th" <?php echo $currentUser['year_of_study'] === '4th' ? 'selected' : ''; ?>>4th Year</option>
-                                            <option value="graduate" <?php echo $currentUser['year_of_study'] === 'graduate' ? 'selected' : ''; ?>>Graduate</option>
+                                            <option value="1st" <?php echo ($currentUser['year_of_study'] ?? '') === '1st' ? 'selected' : ''; ?>>1st Year</option>
+                                            <option value="2nd" <?php echo ($currentUser['year_of_study'] ?? '') === '2nd' ? 'selected' : ''; ?>>2nd Year</option>
+                                            <option value="3rd" <?php echo ($currentUser['year_of_study'] ?? '') === '3rd' ? 'selected' : ''; ?>>3rd Year</option>
+                                            <option value="4th" <?php echo ($currentUser['year_of_study'] ?? '') === '4th' ? 'selected' : ''; ?>>4th Year</option>
+                                            <option value="graduate" <?php echo ($currentUser['year_of_study'] ?? '') === 'graduate' ? 'selected' : ''; ?>>Graduate</option>
                                         </select>
                                     </div>
                                 </div>
@@ -246,7 +295,7 @@ $pageTitle = 'Edit Profile - Menteego';
                             <div class="mb-3">
                                 <label for="skills" class="form-label">Skills</label>
                                 <input type="text" class="form-control" id="skills" name="skills" 
-                                       value="<?php echo htmlspecialchars($currentUser['skills']); ?>"
+                                       value="<?php echo htmlspecialchars($currentUser['skills'] ?? ''); ?>"
                                        placeholder="e.g., Python, Web Development, Data Analysis, Project Management">
                                 <div class="form-text">Enter your skills separated by commas.</div>
                             </div>
@@ -254,7 +303,7 @@ $pageTitle = 'Edit Profile - Menteego';
                             <div class="mb-3">
                                 <label for="interests" class="form-label">Interests</label>
                                 <input type="text" class="form-control" id="interests" name="interests" 
-                                       value="<?php echo htmlspecialchars($currentUser['interests']); ?>"
+                                       value="<?php echo htmlspecialchars($currentUser['interests'] ?? ''); ?>"
                                        placeholder="e.g., Machine Learning, Mobile Apps, Game Development, Entrepreneurship">
                                 <div class="form-text">Enter your interests separated by commas.</div>
                             </div>
@@ -267,7 +316,7 @@ $pageTitle = 'Edit Profile - Menteego';
                                             <i class="fab fa-linkedin me-1"></i>LinkedIn URL
                                         </label>
                                         <input type="url" class="form-control" id="linkedin_url" name="linkedin_url" 
-                                               value="<?php echo htmlspecialchars($currentUser['linkedin_url']); ?>"
+                                               value="<?php echo htmlspecialchars($currentUser['linkedin_url'] ?? ''); ?>"
                                                placeholder="https://linkedin.com/in/your-profile">
                                     </div>
                                 </div>
@@ -277,7 +326,7 @@ $pageTitle = 'Edit Profile - Menteego';
                                             <i class="fab fa-github me-1"></i>GitHub URL
                                         </label>
                                         <input type="url" class="form-control" id="github_url" name="github_url" 
-                                               value="<?php echo htmlspecialchars($currentUser['github_url']); ?>"
+                                               value="<?php echo htmlspecialchars($currentUser['github_url'] ?? ''); ?>"
                                                placeholder="https://github.com/your-username">
                                     </div>
                                 </div>
