@@ -26,7 +26,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'bio' => sanitizeInput($_POST['bio']),
         'department' => sanitizeInput($_POST['department']),
         'year_of_study' => sanitizeInput($_POST['year_of_study']),
-        'skills' => sanitizeInput($_POST['skills']),
         'phone' => sanitizeInput($_POST['phone'])
     ];
     $result = $userModel->updateProfile($userId, $updateData);
@@ -181,10 +180,6 @@ $user = $userModel->getUserById($userId);
                             <div class="mb-3">
                                 <label for="bio" class="form-label">Bio</label>
                                 <textarea class="form-control" id="bio" name="bio" rows="3"><?php echo htmlspecialchars($user['bio']); ?></textarea>
-                            </div>
-                            <div class="mb-3">
-                                <label for="skills" class="form-label">Skills <small class="text-muted">(comma separated)</small></label>
-                                <input type="text" class="form-control" id="skills" name="skills" value="<?php echo htmlspecialchars($user['skills']); ?>">
                             </div>
                             <div class="mb-3">
                                 <label for="phone" class="form-label">Phone</label>

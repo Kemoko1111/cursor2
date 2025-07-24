@@ -171,33 +171,7 @@ $pageTitle = $isOwnProfile ? 'My Profile - Menteego' : $profileUser['first_name'
                         </div>
                     </div>
                 </div>
-                <!-- Skills -->
-                <div class="card shadow-sm mb-4">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">
-                            <i class="fas fa-lightbulb me-2"></i>Skills
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <?php if (!empty($profileUser['skills'])): ?>
-                            <div class="mb-3">
-                                <h6 class="fw-bold">Skills</h6>
-                                <?php 
-                                $skills = explode(',', $profileUser['skills']);
-                                foreach ($skills as $skill): 
-                                ?>
-                                    <span class="badge bg-primary me-1 mb-1">
-                                        <?php echo htmlspecialchars(trim($skill)); ?>
-                                    </span>
-                                <?php endforeach; ?>
-                            </div>
-                        <?php else: ?>
-                            <p class="text-muted text-center py-3 mb-0">
-                                <?php echo $isOwnProfile ? 'Add your skills to your profile.' : 'No skills listed.'; ?>
-                            </p>
-                        <?php endif; ?>
-                    </div>
-                </div>
+                <!-- Remove the Skills card/section entirely. Do not display or process skills anywhere in this file. -->
             </div>
             <!-- Statistics & Activity -->
             <div class="col-lg-4">
