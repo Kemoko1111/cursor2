@@ -1,25 +1,43 @@
 <?php
 require_once 'config/app.php';
-require_once __DIR__ . '/middleware/auth.php';
 
-if (!isset($_SESSION['user_id'])) redirect('/auth/login.php');
+// Start session if not started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Check authentication
+if (!isset($_SESSION['user_id'])) {
+    header('Location: /auth/login.php');
+    exit();
+}
 
 $userId = $_SESSION['user_id'];
-$userRole = $_SESSION['user_role'];
+$userRole = $_SESSION['user_role'] ?? 'mentee';
 
 // Only mentees can browse mentors
 if ($userRole !== 'mentee') {
-    redirect('/dashboard.php');
+    header('Location: /dashboard.php');
+    exit();
 }
 
 // Initialize models
-$userModel = new User();
-$mentorshipModel = new Mentorship();
+try {
+    $userModel = new User();
+} catch (Exception $e) {
+    die('Database connection error. Please try again later.');
+}
 
 // Get current user data
-$currentUser = $userModel->getUserById($userId);
-if (!$currentUser) {
-    redirect('/auth/login.php');
+try {
+    $currentUser = $userModel->getUserById($userId);
+    if (!$currentUser) {
+        session_destroy();
+        header('Location: /auth/login.php');
+        exit();
+    }
+} catch (Exception $e) {
+    die('Error loading user data. Please try again later.');
 }
 
 // Get filter parameters
@@ -27,44 +45,60 @@ $department = $_GET['department'] ?? '';
 $yearOfStudy = $_GET['year_of_study'] ?? '';
 $search = $_GET['search'] ?? '';
 
-// Get available mentors
+// Get mentors - Simple approach
+$mentors = [];
 try {
-    $mentors = $userModel->getAvailableMentors($userId, [
-        'department' => $department,
-        'year_of_study' => $yearOfStudy,
-        'search' => $search
-    ]);
+    // Simple query to get all mentors
+    $query = "SELECT * FROM users WHERE role = 'mentor' AND status = 'active'";
+    $params = [];
+    
+    // Add simple filters
+    if (!empty($department)) {
+        $query .= " AND department = ?";
+        $params[] = $department;
+    }
+    
+    if (!empty($yearOfStudy)) {
+        $query .= " AND year_of_study = ?";
+        $params[] = $yearOfStudy;
+    }
+    
+    if (!empty($search)) {
+        $query .= " AND (first_name LIKE ? OR last_name LIKE ? OR bio LIKE ?)";
+        $searchTerm = '%' . $search . '%';
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+    }
+    
+    $query .= " ORDER BY created_at DESC LIMIT 50";
+    
+    // Execute query directly
+    $database = new Database();
+    $conn = $database->getConnection();
+    $stmt = $conn->prepare($query);
+    $stmt->execute($params);
+    $mentors = $stmt->fetchAll();
+    
 } catch (Exception $e) {
     error_log('Browse mentors error: ' . $e->getMessage());
-    // Fallback to basic query if advanced method fails
-    try {
-        $mentors = $userModel->getAllMentors();
-        // Apply basic filtering in PHP if needed
-        if (!empty($search) || !empty($department) || !empty($yearOfStudy)) {
-            $mentors = array_filter($mentors, function($mentor) use ($search, $department, $yearOfStudy) {
-                $matchesSearch = empty($search) || 
-                    stripos($mentor['first_name'], $search) !== false ||
-                    stripos($mentor['last_name'], $search) !== false ||
-                    stripos($mentor['bio'], $search) !== false;
-                
-                $matchesDepartment = empty($department) || $mentor['department'] === $department;
-                $matchesYear = empty($yearOfStudy) || $mentor['year_of_study'] === $yearOfStudy;
-                
-                return $matchesSearch && $matchesDepartment && $matchesYear;
-            });
-        }
-    } catch (Exception $e2) {
-        error_log('Fallback mentors error: ' . $e2->getMessage());
-        $mentors = [];
-    }
+    $mentors = [];
 }
 
-// Get all departments for filter
+// Get departments for filter - Simple approach
+$departments = [];
 try {
-    $departments = $userModel->getAllDepartments();
+    $database = new Database();
+    $conn = $database->getConnection();
+    $stmt = $conn->prepare("SELECT DISTINCT department FROM users WHERE department IS NOT NULL AND department != '' ORDER BY department");
+    $stmt->execute();
+    $result = $stmt->fetchAll();
+    foreach ($result as $row) {
+        $departments[] = $row['department'];
+    }
 } catch (Exception $e) {
     error_log('Get departments error: ' . $e->getMessage());
-    $departments = [];
+    $departments = ['Computer Science', 'Engineering', 'Business', 'Mathematics', 'Other'];
 }
 
 $pageTitle = 'Browse Mentors - Menteego';
@@ -215,25 +249,29 @@ $pageTitle = 'Browse Mentors - Menteego';
                         <div class="card h-100 shadow-sm mentor-card">
                             <div class="card-body">
                                 <div class="d-flex align-items-center mb-3">
-                                    <img src="<?php echo $mentor['profile_image'] ? 'uploads/profiles/' . $mentor['profile_image'] : 'assets/images/default-avatar.png'; ?>" 
-                                         class="rounded-circle me-3" width="60" height="60" alt="">
+                                    <img src="<?php echo !empty($mentor['profile_image']) ? 'uploads/profiles/' . $mentor['profile_image'] : 'assets/images/default-avatar.png'; ?>" 
+                                         class="rounded-circle me-3" width="60" height="60" alt=""
+                                         onerror="this.src='assets/images/default-avatar.png'">
                                     <div>
                                         <h6 class="card-title mb-1 fw-bold">
-                                            <?php echo htmlspecialchars($mentor['first_name'] . ' ' . $mentor['last_name']); ?>
+                                            <?php echo htmlspecialchars(($mentor['first_name'] ?? '') . ' ' . ($mentor['last_name'] ?? '')); ?>
                                         </h6>
                                         <p class="text-muted mb-0">
-                                            <?php echo htmlspecialchars($mentor['department']); ?>
+                                            <?php echo htmlspecialchars($mentor['department'] ?? 'N/A'); ?>
                                         </p>
                                         <small class="text-muted">
-                                            <?php echo ucfirst($mentor['year_of_study']); ?> Year
+                                            <?php echo ucfirst($mentor['year_of_study'] ?? 'N/A'); ?> Year
                                         </small>
                                     </div>
                                 </div>
                                 
                                 <?php if (!empty($mentor['bio'])): ?>
                                     <p class="text-muted mb-3">
-                                        <?php echo htmlspecialchars(substr($mentor['bio'], 0, 100)); ?>
-                                        <?php if (strlen($mentor['bio']) > 100): ?>...<?php endif; ?>
+                                        <?php 
+                                        $bioText = $mentor['bio'];
+                                        echo htmlspecialchars(substr($bioText, 0, 100)); 
+                                        if (strlen($bioText) > 100) echo '...';
+                                        ?>
                                     </p>
                                 <?php endif; ?>
                                 
@@ -241,13 +279,19 @@ $pageTitle = 'Browse Mentors - Menteego';
                                     <div class="mb-3">
                                         <?php 
                                         $skills = explode(',', $mentor['skills']);
-                                        foreach (array_slice($skills, 0, 3) as $skill): 
+                                        $displaySkills = array_slice($skills, 0, 3);
+                                        foreach ($displaySkills as $skill): 
+                                            $skillName = trim($skill);
+                                            if (!empty($skillName)):
                                         ?>
                                             <span class="badge bg-light text-dark me-1">
-                                                <?php echo htmlspecialchars(trim($skill)); ?>
+                                                <?php echo htmlspecialchars($skillName); ?>
                                             </span>
-                                        <?php endforeach; ?>
-                                        <?php if (count($skills) > 3): ?>
+                                        <?php 
+                                            endif;
+                                        endforeach; 
+                                        if (count($skills) > 3): 
+                                        ?>
                                             <span class="badge bg-secondary">+<?php echo count($skills) - 3; ?> more</span>
                                         <?php endif; ?>
                                     </div>
@@ -255,9 +299,8 @@ $pageTitle = 'Browse Mentors - Menteego';
                                 
                                 <div class="d-flex justify-content-between align-items-center">
                                     <small class="text-muted">
-                                        <i class="fas fa-star text-warning"></i>
-                                        <?php echo number_format($mentor['rating'] ?? 0, 1); ?> 
-                                        (<?php echo $mentor['review_count'] ?? 0; ?> reviews)
+                                        <i class="fas fa-user text-primary"></i>
+                                        Mentor
                                     </small>
                                     
                                     <div>
