@@ -213,18 +213,11 @@ $pageTitle = $isOwnProfile ? 'My Profile - Menteego' : $profileUser['first_name'
 
                                 <!-- Social Links -->
                                 <div class="d-flex gap-2">
-                                    <?php if (!empty($profileUser['linkedin_url'])): ?>
-                                        <a href="<?php echo htmlspecialchars($profileUser['linkedin_url']); ?>" 
-                                           target="_blank" class="btn btn-sm btn-outline-primary">
-                                            <i class="fab fa-linkedin me-1"></i>LinkedIn
-                                        </a>
-                                    <?php endif; ?>
-                                    
-                                    <?php if (!empty($profileUser['github_url'])): ?>
-                                        <a href="<?php echo htmlspecialchars($profileUser['github_url']); ?>" 
-                                           target="_blank" class="btn btn-sm btn-outline-dark">
-                                            <i class="fab fa-github me-1"></i>GitHub
-                                        </a>
+                                    <?php if (!empty($profileUser['phone'])): ?>
+                                        <span class="badge bg-info">
+                                            <i class="fas fa-phone me-1"></i>
+                                            <?php echo htmlspecialchars($profileUser['phone']); ?>
+                                        </span>
                                     <?php endif; ?>
                                 </div>
                             </div>

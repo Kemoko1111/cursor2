@@ -27,9 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'department' => sanitizeInput($_POST['department']),
         'year_of_study' => sanitizeInput($_POST['year_of_study']),
         'skills' => sanitizeInput($_POST['skills']),
-        'interests' => sanitizeInput($_POST['interests']),
-        'linkedin_url' => sanitizeInput($_POST['linkedin_url']),
-        'github_url' => sanitizeInput($_POST['github_url'])
+        'phone' => sanitizeInput($_POST['phone'])
     ];
     $result = $userModel->updateProfile($userId, $updateData);
     if ($result && isset($result['success']) && $result['success']) {
@@ -189,16 +187,8 @@ $user = $userModel->getUserById($userId);
                                 <input type="text" class="form-control" id="skills" name="skills" value="<?php echo htmlspecialchars($user['skills']); ?>">
                             </div>
                             <div class="mb-3">
-                                <label for="interests" class="form-label">Interests <small class="text-muted">(comma separated)</small></label>
-                                <input type="text" class="form-control" id="interests" name="interests" value="<?php echo htmlspecialchars($user['interests']); ?>">
-                            </div>
-                            <div class="mb-3">
-                                <label for="linkedin_url" class="form-label">LinkedIn URL</label>
-                                <input type="url" class="form-control" id="linkedin_url" name="linkedin_url" value="<?php echo htmlspecialchars($user['linkedin_url']); ?>">
-                            </div>
-                            <div class="mb-3">
-                                <label for="github_url" class="form-label">GitHub URL</label>
-                                <input type="url" class="form-control" id="github_url" name="github_url" value="<?php echo htmlspecialchars($user['github_url']); ?>">
+                                <label for="phone" class="form-label">Phone</label>
+                                <input type="text" class="form-control" id="phone" name="phone" value="<?php echo htmlspecialchars($user['phone']); ?>">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Email</label>
