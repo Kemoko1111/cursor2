@@ -259,12 +259,12 @@ $pageTitle = 'Browse Mentors - Menteego';
                         <input type="hidden" id="mentorId" name="mentor_id">
                         <div class="mb-3">
                             <label for="message" class="form-label">Personal Message</label>
-                            <textarea class="form-control" id="message" name="message" rows="4" 
+                            <textarea class="form-control" id="message" name="message" rows="4" required
                                       placeholder="Tell the mentor why you'd like their guidance and what you hope to achieve..."></textarea>
                         </div>
                         <div class="mb-3">
                             <label for="goals" class="form-label">Learning Goals</label>
-                            <textarea class="form-control" id="goals" name="goals" rows="3" 
+                            <textarea class="form-control" id="goals" name="goals" rows="3" required
                                       placeholder="What specific skills or areas would you like to improve?"></textarea>
                         </div>
                     </div>
@@ -288,16 +288,21 @@ $pageTitle = 'Browse Mentors - Menteego';
             btn.addEventListener('click', function() {
                 const mentorId = this.dataset.mentorId;
                 document.getElementById('mentorId').value = mentorId;
+                document.getElementById('requestForm').reset(); // Reset form fields
                 new bootstrap.Modal(document.getElementById('requestModal')).show();
             });
         });
 
-        // Handle form submission
+        // Handle form submission with client-side validation
         document.getElementById('requestForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            
+            const message = document.getElementById('message').value.trim();
+            const goals = document.getElementById('goals').value.trim();
+            if (!message || !goals) {
+                alert('Please fill in both the personal message and your learning goals.');
+                return;
+            }
             const formData = new FormData(this);
-            
             fetch('/api/mentorship-request.php', {
                 method: 'POST',
                 body: formData
