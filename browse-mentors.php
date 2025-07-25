@@ -14,7 +14,7 @@ if ($userRole !== 'mentee') {
 
 // Initialize models
 $userModel = new User();
-$mentorshipModel = new Mentorship();
+// Remove: $mentorshipModel = new Mentorship();
 
 // Get current user data
 $currentUser = $userModel->getUserById($userId);
@@ -207,11 +207,12 @@ $pageTitle = 'Browse Mentors - Menteego';
                                 <?php if (!empty($mentor['skills'])): ?>
                                     <div class="mb-3">
                                         <?php 
-                                        $skills = explode(',', $mentor['skills']);
+                                        // Support both comma and pipe separated skills
+                                        $skills = strpos($mentor['skills'], '|') !== false ? explode('|', $mentor['skills']) : explode(',', $mentor['skills']);
                                         foreach (array_slice($skills, 0, 3) as $skill): 
                                         ?>
                                             <span class="badge bg-light text-dark me-1">
-                                                <?php echo htmlspecialchars(trim($skill)); ?>
+                                                <?php echo htmlspecialchars(trim(strpos($skill, ':') !== false ? explode(':', $skill)[0] : $skill)); ?>
                                             </span>
                                         <?php endforeach; ?>
                                         <?php if (count($skills) > 3): ?>
@@ -286,9 +287,9 @@ $pageTitle = 'Browse Mentors - Menteego';
         // Handle mentor request
         document.querySelectorAll('.request-mentor-btn').forEach(btn => {
             btn.addEventListener('click', function() {
+                document.getElementById('requestForm').reset(); // Reset form fields
                 const mentorId = this.dataset.mentorId;
                 document.getElementById('mentorId').value = mentorId;
-                document.getElementById('requestForm').reset(); // Reset form fields
                 new bootstrap.Modal(document.getElementById('requestModal')).show();
             });
         });
