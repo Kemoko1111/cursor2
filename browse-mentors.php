@@ -279,41 +279,38 @@ $pageTitle = 'Browse Mentors - Menteego';
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Custom JS -->
     <script src="assets/js/main.js"></script>
-    
     <script>
         // Handle mentor request
         document.querySelectorAll('.request-mentor-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const mentorId = this.dataset.mentorId;
                 document.getElementById('mentorId').value = mentorId;
+                document.getElementById('requestForm').reset(); // Reset form fields
                 new bootstrap.Modal(document.getElementById('requestModal')).show();
             });
         });
 
-        // Handle form submission
+        // Updated: Handle form submission with client-side validation and new API endpoint
         document.getElementById('requestForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            
             const formData = new FormData(this);
-            
-            fetch('/api/mentorship-request.php', {
+
+            fetch('/api/new-mentorship-request.php', {
                 method: 'POST',
                 body: formData
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('Mentorship request sent successfully!');
+                    alert('Mentorship request sent!');
                     bootstrap.Modal.getInstance(document.getElementById('requestModal')).hide();
                     location.reload();
                 } else {
                     alert('Error: ' + data.message);
                 }
             })
-            .catch(error => {
-                console.error('Error:', error);
+            .catch(() => {
                 alert('An error occurred. Please try again.');
             });
         });
