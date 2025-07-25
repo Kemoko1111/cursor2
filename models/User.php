@@ -392,6 +392,27 @@ class User {
         return $stmt->fetch();
     }
 
+    public function updatePassword($userId, $newPassword) {
+        try {
+            $query = "UPDATE " . $this->table . " SET password_hash = :password WHERE id = :user_id";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':password', hashPassword($newPassword));
+            $stmt->bindParam(':user_id', $userId);
+            if ($stmt->execute()) {
+                return [
+                    'success' => true,
+                    'message' => 'Password updated successfully'
+                ];
+            }
+            throw new Exception("Failed to update password");
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => $e->getMessage()
+            ];
+        }
+    }
+
     private function emailExists($email) {
         $query = "SELECT id FROM " . $this->table . " WHERE email = :email";
         $stmt = $this->conn->prepare($query);
