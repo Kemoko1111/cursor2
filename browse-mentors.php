@@ -314,7 +314,7 @@ $pageTitle = 'Browse Mentors - Menteego';
                     bootstrap.Modal.getInstance(document.getElementById('requestModal')).hide();
                     location.reload();
                 } else {
-                    alert('Error: ' + data.message);
+                    alert('Error: ' + data.message); // Show the real backend error message
                 }
             })
             .catch(error => {
