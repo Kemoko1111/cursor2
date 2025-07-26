@@ -6,6 +6,12 @@ require_once __DIR__ . '/../../models/Mentorship.php';
 header('Content-Type: application/json');
 session_start();
 
+// Simple test to verify API is working
+if (isset($_GET['test'])) {
+    echo json_encode(['success' => true, 'message' => 'API is working']);
+    exit;
+}
+
 // Enable error reporting for debugging
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
