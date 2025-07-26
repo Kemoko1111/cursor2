@@ -95,15 +95,40 @@ function sendMessage($senderId, $mentorshipId, $content, $messageType = 'text') 
         $mentorship = $mentorshipStmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$mentorship) {
+            error_log("Mentorship not found: " . $mentorshipId);
             return false;
         }
         
         $receiverId = $mentorship['mentor_id'] == $senderId ? $mentorship['mentee_id'] : $mentorship['mentor_id'];
         
+        // Check if messages table exists, if not create it
+        $tableCheck = $pdo->query("SHOW TABLES LIKE 'messages'");
+        if ($tableCheck->rowCount() == 0) {
+            // Create messages table
+            $createTable = "CREATE TABLE messages (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                sender_id INT NOT NULL,
+                receiver_id INT NOT NULL,
+                mentorship_id INT NOT NULL,
+                content TEXT NOT NULL,
+                message_type ENUM('text', 'resource') DEFAULT 'text',
+                is_read BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )";
+            $pdo->exec($createTable);
+        }
+        
         $query = "INSERT INTO messages (sender_id, receiver_id, mentorship_id, content, message_type, created_at) 
                   VALUES (?, ?, ?, ?, ?, NOW())";
         $stmt = $pdo->prepare($query);
-        return $stmt->execute([$senderId, $receiverId, $mentorshipId, $content, $messageType]);
+        $result = $stmt->execute([$senderId, $receiverId, $mentorshipId, $content, $messageType]);
+        
+        if (!$result) {
+            error_log("Failed to insert message: " . implode(", ", $stmt->errorInfo()));
+            return false;
+        }
+        
+        return true;
     } catch (Exception $e) {
         error_log("Error sending message: " . $e->getMessage());
         return false;
@@ -171,8 +196,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['message_content'])) {
     if (!empty($messageContent) && $mentorshipId) {
         $messageSent = sendMessage($userId, $mentorshipId, $messageContent, $messageType);
         if (!$messageSent) {
-            $messageError = 'Failed to send message. Please try again.';
+            $messageError = 'Failed to send message. Please check your connection and try again.';
+            error_log("Message send failed for user $userId, mentorship $mentorshipId");
+        } else {
+            // Redirect to prevent form resubmission
+            header("Location: " . $_SERVER['REQUEST_URI']);
+            exit();
         }
+    } else {
+        $messageError = 'Please enter a message.';
     }
 }
 
