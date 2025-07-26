@@ -458,8 +458,8 @@ $pageTitle = 'Browse Mentors - Menteego';
                                     </div>
                                 <?php endif; ?>
                                 <div class="d-grid">
-                                    <button class="btn btn-primary" 
-                                            onclick="openRequestModal(<?php echo $mentor['id']; ?>, '<?php echo htmlspecialchars($mentor['first_name'] . ' ' . $mentor['last_name']); ?>')">
+                                    <button class="btn btn-primary request-mentor-btn" 
+                                            data-mentor-id="<?php echo $mentor['id']; ?>">
                                         <i class="fas fa-paper-plane me-1"></i>Request Mentorship
                                     </button>
                                 </div>
@@ -491,6 +491,19 @@ $pageTitle = 'Browse Mentors - Menteego';
                             <label for="goals" class="form-label">Learning Goals</label>
                             <textarea class="form-control" id="goals" name="goals" rows="3" required
                                       placeholder="What specific skills or areas would you like to improve?"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="meeting_type" class="form-label">Preferred Meeting Type</label>
+                            <select class="form-select" id="meeting_type" name="meeting_type" required>
+                                <option value="online">Online</option>
+                                <option value="in_person">In Person</option>
+                                <option value="hybrid">Hybrid</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="duration_weeks" class="form-label">Duration (weeks)</label>
+                            <input type="number" class="form-control" id="duration_weeks" name="duration_weeks" 
+                                   min="1" max="52" value="12" required>
                         </div>
                     </div>
                     <div class="modal-footer">

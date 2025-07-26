@@ -1,6 +1,8 @@
 <?php
 require_once '../config/app.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../models/User.php';
+require_once __DIR__ . '/../models/Mentorship.php';
 
 header('Content-Type: application/json');
 
@@ -30,9 +32,21 @@ try {
     $mentorId = (int)($_POST['mentor_id'] ?? 0);
     $message = trim($_POST['message'] ?? '');
     $goals = trim($_POST['goals'] ?? '');
+    $meetingType = $_POST['meeting_type'] ?? 'online';
+    $durationWeeks = (int)($_POST['duration_weeks'] ?? 12);
 
     if (!$mentorId) {
         echo json_encode(['success' => false, 'message' => 'Mentor ID is required']);
+        exit;
+    }
+
+    if (empty($message)) {
+        echo json_encode(['success' => false, 'message' => 'Message is required']);
+        exit;
+    }
+
+    if (empty($goals)) {
+        echo json_encode(['success' => false, 'message' => 'Goals are required']);
         exit;
     }
 
@@ -46,39 +60,38 @@ try {
         exit;
     }
 
-    // Check if request already exists
-    $existingRequest = $mentorshipModel->getExistingRequest($userId, $mentorId);
-    if ($existingRequest) {
-        if ($existingRequest['status'] === 'pending') {
-            echo json_encode(['success' => false, 'message' => 'You already have a pending request with this mentor']);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'You already have a request with this mentor']);
-        }
+    // Check if mentee already has an active mentor
+    if ($mentorshipModel->hasActiveMentor($userId)) {
+        echo json_encode(['success' => false, 'message' => 'You already have an active mentorship. Please complete or cancel your current mentorship before requesting a new one.']);
         exit;
     }
 
-    // Check if mentorship already exists
-    $existingMentorship = $mentorshipModel->getActiveMentorship($userId, $mentorId);
-    if ($existingMentorship) {
-        echo json_encode(['success' => false, 'message' => 'You already have an active mentorship with this mentor']);
+    // Check if mentor has reached maximum capacity
+    if ($mentorshipModel->mentorAtCapacity($mentorId)) {
+        echo json_encode(['success' => false, 'message' => 'This mentor has reached their maximum capacity of mentees.']);
         exit;
     }
 
-    // Create the request
+    // Check if there's already a pending request
+    if ($mentorshipModel->hasPendingRequest($userId, $mentorId)) {
+        echo json_encode(['success' => false, 'message' => 'You already have a pending request with this mentor.']);
+        exit;
+    }
+
+    // Send the request
     $requestData = [
-        'mentee_id' => $userId,
-        'mentor_id' => $mentorId,
         'message' => $message,
+        'meeting_type' => $meetingType,
         'goals' => $goals,
-        'status' => 'pending'
+        'duration_weeks' => $durationWeeks
     ];
 
-    $requestId = $mentorshipModel->createRequest($requestData);
+    $result = $mentorshipModel->sendRequest($userId, $mentorId, $requestData);
     
-    if ($requestId) {
+    if ($result['success']) {
         echo json_encode(['success' => true, 'message' => 'Mentorship request sent successfully']);
     } else {
-        echo json_encode(['success' => false, 'message' => 'Failed to send request. Please try again.']);
+        echo json_encode(['success' => false, 'message' => $result['message']]);
     }
 
 } catch (Exception $e) {
