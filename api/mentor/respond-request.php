@@ -1,10 +1,12 @@
 <?php
 require_once __DIR__ . '/../../config/app.php';
-require_once __DIR__ . '/../../models/User.php';
-require_once __DIR__ . '/../../models/Mentorship.php';
 
 header('Content-Type: application/json');
 session_start();
+
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
 // Simple test to verify API is working
 if (isset($_GET['test'])) {
@@ -21,19 +23,22 @@ if (isset($_GET['debug'])) {
         $debug = [
             'session_user_id' => $_SESSION['user_id'] ?? 'not set',
             'session_user_role' => $_SESSION['user_role'] ?? 'not set',
-            'database_connected' => $conn ? 'yes' : 'no'
+            'database_connected' => $conn ? 'yes' : 'no',
+            'php_version' => PHP_VERSION,
+            'error_reporting' => error_reporting()
         ];
         
         echo json_encode(['success' => true, 'debug' => $debug]);
         exit;
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
         exit;
     }
 }
 
+// Check if user is logged in and is a mentor
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'mentor') {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized - Please log in as a mentor']);
     exit;
 }
 
@@ -48,13 +53,14 @@ try {
     $input = json_decode(file_get_contents('php://input'), true);
     
     if (!isset($input['request_id']) || !isset($input['action'])) {
-        throw new Exception("Missing required fields");
+        throw new Exception("Missing required fields: request_id and action");
     }
+    
     $requestId = (int)$input['request_id'];
     $action = $input['action'];
 
     if (!in_array($action, ['accepted', 'rejected'])) {
-        throw new Exception("Invalid action");
+        throw new Exception("Invalid action. Must be 'accepted' or 'rejected'");
     }
 
     $database = new Database();
@@ -76,7 +82,7 @@ try {
         $currentMentees = $capacityStmt->fetchColumn();
         
         if ($currentMentees >= 3) {
-            throw new Exception("You have reached your maximum capacity of mentees");
+            throw new Exception("You have reached your maximum capacity of 3 mentees");
         }
 
         // Check if mentee already has an active mentorship
@@ -117,7 +123,7 @@ try {
             $notificationStmt->execute([$request['mentee_id'], $requestId]);
 
             $conn->commit();
-            echo json_encode(['success' => true, 'message' => 'Request accepted and mentorship started.']);
+            echo json_encode(['success' => true, 'message' => 'Request accepted and mentorship started successfully.']);
             
         } catch (Exception $e) {
             $conn->rollBack();
@@ -137,7 +143,7 @@ try {
         $notificationStmt = $conn->prepare("INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, 'request_rejected', 'Mentorship Request Rejected', 'Your mentorship request has been declined.', ?)");
         $notificationStmt->execute([$request['mentee_id'], $requestId]);
 
-        echo json_encode(['success' => true, 'message' => 'Request rejected.']);
+        echo json_encode(['success' => true, 'message' => 'Request rejected successfully.']);
     }
 
 } catch (Exception $e) {
