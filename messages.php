@@ -230,6 +230,32 @@ $pageTitle = 'Messages - Menteego';
             border-radius: 0 0 0.375rem 0.375rem;
             border-top: none;
         }
+        .resource-item {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+        .resource-icon {
+            font-size: 1.5rem;
+            margin-right: 0.5rem;
+        }
+        .file-upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 0.375rem;
+            padding: 2rem;
+            text-align: center;
+            background: #f8f9fa;
+            transition: border-color 0.3s;
+        }
+        .file-upload-area:hover {
+            border-color: #007bff;
+        }
+        .file-upload-area.dragover {
+            border-color: #007bff;
+            background: #e3f2fd;
+        }
         .alert {
             position: fixed;
             top: 20px;
@@ -385,6 +411,9 @@ $pageTitle = 'Messages - Menteego';
                                 </small>
                             </div>
                             <div class="ms-auto">
+                                <button class="btn btn-sm btn-outline-primary me-2" onclick="toggleResources()">
+                                    <i class="fas fa-share-alt me-1"></i>Share Resources
+                                </button>
                                 <a href="/profile.php?id=<?php echo $otherUser['id']; ?>" class="btn btn-sm btn-outline-secondary">
                                     <i class="fas fa-user me-1"></i>View Profile
                                 </a>
@@ -402,7 +431,19 @@ $pageTitle = 'Messages - Menteego';
                                 <?php foreach ($messages as $message): ?>
                                     <div class="message <?php echo $message['sender_id'] == $userId ? 'own' : 'other'; ?>">
                                         <div class="message-bubble">
-                                            <?php echo nl2br(htmlspecialchars($message['message'])); ?>
+                                            <?php 
+                                            // Check if message contains a file link (resource)
+                                            if (strpos($message['message'], 'uploads/resources/') !== false) {
+                                                $fileName = basename($message['message']);
+                                                echo '<div class="resource-item">';
+                                                echo '<i class="fas fa-file-alt resource-icon"></i>';
+                                                echo '<strong>' . htmlspecialchars($fileName) . '</strong><br>';
+                                                echo '<small class="text-muted">Shared resource</small>';
+                                                echo '</div>';
+                                            } else {
+                                                echo nl2br(htmlspecialchars($message['message']));
+                                            }
+                                            ?>
                                         </div>
                                         <div class="message-time">
                                             <?php echo date('M j, Y \a\t g:i A', strtotime($message['created_at'])); ?>
@@ -410,6 +451,31 @@ $pageTitle = 'Messages - Menteego';
                                     </div>
                                 <?php endforeach; ?>
                             <?php endif; ?>
+                        </div>
+
+                        <!-- Resource Sharing Modal -->
+                        <div class="modal fade" id="resourceModal" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Share Resources</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="file-upload-area" id="fileUploadArea">
+                                            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                            <h6>Drag and drop files here</h6>
+                                            <p class="text-muted">or click to browse</p>
+                                            <input type="file" id="fileInput" multiple style="display: none;">
+                                        </div>
+                                        <div id="selectedFiles" class="mt-3"></div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="button" class="btn btn-primary" onclick="shareResources()">Share</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Message Input -->
@@ -570,6 +636,111 @@ $pageTitle = 'Messages - Menteego';
                     messageForm.dispatchEvent(new Event('submit'));
                 }
             });
+        }
+
+        // Resource sharing functionality
+        let selectedFiles = [];
+
+        function toggleResources() {
+            const modal = new bootstrap.Modal(document.getElementById('resourceModal'));
+            modal.show();
+        }
+
+        // File upload handling
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        if (fileUploadArea && fileInput) {
+            fileUploadArea.addEventListener('click', () => fileInput.click());
+
+            fileUploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                fileUploadArea.classList.add('dragover');
+            });
+
+            fileUploadArea.addEventListener('dragleave', () => {
+                fileUploadArea.classList.remove('dragover');
+            });
+
+            fileUploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                fileUploadArea.classList.remove('dragover');
+                const files = Array.from(e.dataTransfer.files);
+                handleFiles(files);
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                const files = Array.from(e.target.files);
+                handleFiles(files);
+            });
+        }
+
+        function handleFiles(files) {
+            selectedFiles = files;
+            displaySelectedFiles();
+        }
+
+        function displaySelectedFiles() {
+            const container = document.getElementById('selectedFiles');
+            container.innerHTML = '';
+
+            selectedFiles.forEach((file, index) => {
+                const fileDiv = document.createElement('div');
+                fileDiv.className = 'd-flex align-items-center justify-content-between p-2 bg-light rounded mb-2';
+                fileDiv.innerHTML = `
+                    <div>
+                        <i class="fas fa-file me-2"></i>
+                        <span>${file.name}</span>
+                        <small class="text-muted">(${(file.size / 1024 / 1024).toFixed(2)} MB)</small>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(${index})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                container.appendChild(fileDiv);
+            });
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            displaySelectedFiles();
+        }
+
+        async function shareResources() {
+            if (selectedFiles.length === 0) {
+                showAlert('Please select files to share', 'warning');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('mentorship_id', '<?php echo $mentorship['id'] ?? ''; ?>');
+
+            selectedFiles.forEach(file => {
+                formData.append('files[]', file);
+            });
+
+            try {
+                const response = await fetch('/api/messages/send-resource.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert('Resources shared successfully!', 'success');
+                    // Close modal and refresh page
+                    bootstrap.Modal.getInstance(document.getElementById('resourceModal')).hide();
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    showAlert('Failed to share resources: ' + result.message, 'danger');
+                }
+            } catch (error) {
+                console.error('Error sharing resources:', error);
+                showAlert('Failed to share resources. Please try again.', 'danger');
+            }
         }
     </script>
 </body>
