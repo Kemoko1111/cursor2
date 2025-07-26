@@ -234,13 +234,39 @@ $pageTitle = 'Mentorship Requests - Menteego';
             if (!confirm('Are you sure you want to ' + action + ' this request?')) return;
             
             try {
+                console.log('Sending request:', { request_id: requestId, action: action });
+                
                 const response = await fetch('/api/mentor/respond-request.php', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
                     body: JSON.stringify({ request_id: requestId, action: action })
                 });
                 
-                const result = await response.json();
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                
+                // Check if response is ok
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                // Get response text first
+                const responseText = await response.text();
+                console.log('Response text:', responseText);
+                
+                // Try to parse JSON
+                let result;
+                try {
+                    result = JSON.parse(responseText);
+                } catch (parseError) {
+                    console.error('JSON parse error:', parseError);
+                    throw new Error('Invalid JSON response from server: ' + responseText);
+                }
+                
+                console.log('Parsed result:', result);
                 
                 if (result.success) {
                     showAlert(result.message, 'success');
@@ -249,7 +275,7 @@ $pageTitle = 'Mentorship Requests - Menteego';
                     showAlert(result.message || 'Failed to process request', 'danger');
                 }
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Error details:', error);
                 showAlert('Network error: ' + error.message, 'danger');
             }
         }
