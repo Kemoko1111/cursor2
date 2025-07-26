@@ -1,42 +1,56 @@
 <?php
-require_once __DIR__ . '/../../config/app.php';
-
-header('Content-Type: application/json');
+// Start session
 session_start();
+
+// Set headers
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+
+// Handle preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
 
 // Enable error reporting for debugging
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Simple test to verify API is working
+// Database configuration
+$db_host = 'sql103.infinityfree.com';
+$db_name = 'if0_39537447_menteego_db';
+$db_user = 'if0_39537447';
+$db_pass = 'AeFe44u4EAs';
+
+// Simple test endpoint
 if (isset($_GET['test'])) {
     echo json_encode(['success' => true, 'message' => 'API is working']);
     exit;
 }
 
-// Debug endpoint to test database and session
+// Debug endpoint
 if (isset($_GET['debug'])) {
     try {
-        $database = new Database();
-        $conn = $database->getConnection();
+        $pdo = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         
         $debug = [
             'session_user_id' => $_SESSION['user_id'] ?? 'not set',
             'session_user_role' => $_SESSION['user_role'] ?? 'not set',
-            'database_connected' => $conn ? 'yes' : 'no',
-            'php_version' => PHP_VERSION,
-            'error_reporting' => error_reporting()
+            'database_connected' => 'yes',
+            'php_version' => PHP_VERSION
         ];
         
         echo json_encode(['success' => true, 'debug' => $debug]);
         exit;
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         exit;
     }
 }
 
-// Check if user is logged in and is a mentor
+// Check authentication
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'mentor') {
     echo json_encode(['success' => false, 'message' => 'Unauthorized - Please log in as a mentor']);
     exit;
@@ -44,14 +58,21 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'mentor') {
 
 $userId = $_SESSION['user_id'];
 
+// Only allow POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['success' => false, 'message' => 'Invalid request method']);
     exit;
 }
 
 try {
+    // Get JSON input
     $input = json_decode(file_get_contents('php://input'), true);
     
+    if (!$input) {
+        throw new Exception("Invalid JSON input");
+    }
+    
+    // Validate required fields
     if (!isset($input['request_id']) || !isset($input['action'])) {
         throw new Exception("Missing required fields: request_id and action");
     }
@@ -63,13 +84,14 @@ try {
         throw new Exception("Invalid action. Must be 'accepted' or 'rejected'");
     }
 
-    $database = new Database();
-    $conn = $database->getConnection();
+    // Connect to database
+    $pdo = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     // Get the request
-    $stmt = $conn->prepare("SELECT * FROM mentorship_requests WHERE id = ? AND mentor_id = ? AND status = 'pending'");
+    $stmt = $pdo->prepare("SELECT * FROM mentorship_requests WHERE id = ? AND mentor_id = ? AND status = 'pending'");
     $stmt->execute([$requestId, $userId]);
-    $request = $stmt->fetch();
+    $request = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$request) {
         throw new Exception("Request not found or already processed");
@@ -77,7 +99,7 @@ try {
 
     if ($action === 'accepted') {
         // Check if mentor has reached capacity (max 3 mentees)
-        $capacityStmt = $conn->prepare("SELECT COUNT(*) FROM mentorships WHERE mentor_id = ? AND status = 'active'");
+        $capacityStmt = $pdo->prepare("SELECT COUNT(*) FROM mentorships WHERE mentor_id = ? AND status = 'active'");
         $capacityStmt->execute([$userId]);
         $currentMentees = $capacityStmt->fetchColumn();
         
@@ -86,7 +108,7 @@ try {
         }
 
         // Check if mentee already has an active mentorship
-        $menteeActiveStmt = $conn->prepare("SELECT COUNT(*) FROM mentorships WHERE mentee_id = ? AND status = 'active'");
+        $menteeActiveStmt = $pdo->prepare("SELECT COUNT(*) FROM mentorships WHERE mentee_id = ? AND status = 'active'");
         $menteeActiveStmt->execute([$request['mentee_id']]);
         $menteeActiveCount = $menteeActiveStmt->fetchColumn();
         
@@ -95,11 +117,11 @@ try {
         }
 
         // Accept: update request, create mentorship
-        $conn->beginTransaction();
+        $pdo->beginTransaction();
         
         try {
             // Update request status
-            $updateStmt = $conn->prepare("UPDATE mentorship_requests SET status = 'accepted', responded_at = NOW() WHERE id = ?");
+            $updateStmt = $pdo->prepare("UPDATE mentorship_requests SET status = 'accepted', responded_at = NOW() WHERE id = ?");
             $updateResult = $updateStmt->execute([$requestId]);
             
             if (!$updateResult) {
@@ -107,7 +129,7 @@ try {
             }
 
             // Create mentorship
-            $mentorshipStmt = $conn->prepare("INSERT INTO mentorships (request_id, mentee_id, mentor_id, start_date, status, meeting_frequency) VALUES (?, ?, ?, CURDATE(), 'active', 'weekly')");
+            $mentorshipStmt = $pdo->prepare("INSERT INTO mentorships (request_id, mentee_id, mentor_id, start_date, status, meeting_frequency) VALUES (?, ?, ?, CURDATE(), 'active', 'weekly')");
             $mentorshipResult = $mentorshipStmt->execute([$requestId, $request['mentee_id'], $userId]);
             
             if (!$mentorshipResult) {
@@ -115,24 +137,24 @@ try {
             }
 
             // Cancel other pending requests from this mentee
-            $cancelStmt = $conn->prepare("UPDATE mentorship_requests SET status = 'cancelled' WHERE mentee_id = ? AND id != ? AND status = 'pending'");
+            $cancelStmt = $pdo->prepare("UPDATE mentorship_requests SET status = 'cancelled' WHERE mentee_id = ? AND id != ? AND status = 'pending'");
             $cancelStmt->execute([$request['mentee_id'], $requestId]);
 
             // Create notification for mentee
-            $notificationStmt = $conn->prepare("INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, 'request_accepted', 'Mentorship Request Accepted', 'Your mentorship request has been accepted! You can now start communicating with your mentor.', ?)");
+            $notificationStmt = $pdo->prepare("INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, 'request_accepted', 'Mentorship Request Accepted', 'Your mentorship request has been accepted! You can now start communicating with your mentor.', ?)");
             $notificationStmt->execute([$request['mentee_id'], $requestId]);
 
-            $conn->commit();
+            $pdo->commit();
             echo json_encode(['success' => true, 'message' => 'Request accepted and mentorship started successfully.']);
             
         } catch (Exception $e) {
-            $conn->rollBack();
+            $pdo->rollBack();
             throw $e;
         }
         
     } elseif ($action === 'rejected') {
         // Reject: update request
-        $updateStmt = $conn->prepare("UPDATE mentorship_requests SET status = 'rejected', responded_at = NOW() WHERE id = ?");
+        $updateStmt = $pdo->prepare("UPDATE mentorship_requests SET status = 'rejected', responded_at = NOW() WHERE id = ?");
         $updateResult = $updateStmt->execute([$requestId]);
         
         if (!$updateResult) {
@@ -140,7 +162,7 @@ try {
         }
 
         // Create notification for mentee
-        $notificationStmt = $conn->prepare("INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, 'request_rejected', 'Mentorship Request Rejected', 'Your mentorship request has been declined.', ?)");
+        $notificationStmt = $pdo->prepare("INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, 'request_rejected', 'Mentorship Request Rejected', 'Your mentorship request has been declined.', ?)");
         $notificationStmt->execute([$request['mentee_id'], $requestId]);
 
         echo json_encode(['success' => true, 'message' => 'Request rejected successfully.']);
