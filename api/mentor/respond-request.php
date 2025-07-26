@@ -12,9 +12,25 @@ if (isset($_GET['test'])) {
     exit;
 }
 
-// Enable error reporting for debugging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// Debug endpoint to test database and session
+if (isset($_GET['debug'])) {
+    try {
+        $database = new Database();
+        $conn = $database->getConnection();
+        
+        $debug = [
+            'session_user_id' => $_SESSION['user_id'] ?? 'not set',
+            'session_user_role' => $_SESSION['user_role'] ?? 'not set',
+            'database_connected' => $conn ? 'yes' : 'no'
+        ];
+        
+        echo json_encode(['success' => true, 'debug' => $debug]);
+        exit;
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        exit;
+    }
+}
 
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'mentor') {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
