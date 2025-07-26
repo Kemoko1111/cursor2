@@ -35,7 +35,6 @@ if (!$input) {
 // Validate required fields
 $messageContent = trim($input['message_content'] ?? '');
 $mentorshipId = $input['mentorship_id'] ?? null;
-$messageType = $input['message_type'] ?? 'text';
 
 if (empty($messageContent)) {
     sendJsonResponse(['success' => false, 'message' => 'Message content is required'], 400);
@@ -70,11 +69,11 @@ try {
     // Determine receiver
     $receiverId = $mentorship['mentor_id'] == $userId ? $mentorship['mentee_id'] : $mentorship['mentor_id'];
     
-    // Insert message
-    $query = "INSERT INTO messages (sender_id, receiver_id, mentorship_id, content, message_type, created_at) 
-              VALUES (?, ?, ?, ?, ?, NOW())";
+    // Insert message using the correct column name 'message' instead of 'content'
+    $query = "INSERT INTO messages (sender_id, receiver_id, mentorship_id, message, created_at) 
+              VALUES (?, ?, ?, ?, NOW())";
     $stmt = $pdo->prepare($query);
-    $result = $stmt->execute([$userId, $receiverId, $mentorshipId, $messageContent, $messageType]);
+    $result = $stmt->execute([$userId, $receiverId, $mentorshipId, $messageContent]);
     
     if ($result) {
         sendJsonResponse([
@@ -85,8 +84,7 @@ try {
                 'sender_id' => $userId,
                 'receiver_id' => $receiverId,
                 'mentorship_id' => $mentorshipId,
-                'content' => $messageContent,
-                'message_type' => $messageType,
+                'message' => $messageContent,
                 'created_at' => date('Y-m-d H:i:s')
             ]
         ]);
