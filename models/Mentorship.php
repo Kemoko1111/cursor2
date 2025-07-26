@@ -1,5 +1,6 @@
 <?php
 require_once 'config/database.php';
+require_once __DIR__ . '/../services/EmailService.php';
 
 class Mentorship {
     private $conn;
@@ -49,13 +50,18 @@ class Mentorship {
                     'You have received a new mentorship request.', 
                     $requestId);
 
-                // Send email notification
-                $userModel = new User();
-                $mentor = $userModel->getUserById($mentorId);
-                $mentee = $userModel->getUserById($menteeId);
-                
-                $emailService = new EmailService();
-                $emailService->sendMentorshipRequestEmail($mentor, $mentee, $requestId);
+                // Try to send email notification (but don't fail if it doesn't work)
+                try {
+                    $userModel = new User();
+                    $mentor = $userModel->getUserById($mentorId);
+                    $mentee = $userModel->getUserById($menteeId);
+                    
+                    $emailService = new EmailService();
+                    $emailService->sendMentorshipRequestEmail($mentor, $mentee, $requestId);
+                } catch (Exception $e) {
+                    // Log email error but don't fail the request
+                    error_log('Email notification failed: ' . $e->getMessage());
+                }
 
                 return [
                     'success' => true,
@@ -306,7 +312,7 @@ class Mentorship {
         return $stmt->fetchAll();
     }
 
-    private function hasActiveMentor($menteeId) {
+    public function hasActiveMentor($menteeId) {
         $query = "SELECT COUNT(*) FROM " . $this->mentorshipTable . " 
                  WHERE mentee_id = :mentee_id AND status = 'active'";
         
@@ -317,21 +323,25 @@ class Mentorship {
         return $stmt->fetchColumn() > 0;
     }
 
-    private function mentorAtCapacity($mentorId) {
-        $query = "SELECT COUNT(*) as current_mentees,
-                         (SELECT setting_value FROM system_settings WHERE setting_key = 'max_mentees_per_mentor') as max_mentees
-                  FROM " . $this->mentorshipTable . " 
-                  WHERE mentor_id = :mentor_id AND status = 'active'";
+    public function mentorAtCapacity($mentorId) {
+        // Get current mentees count
+        $query = "SELECT COUNT(*) as current_mentees FROM " . $this->mentorshipTable . " 
+                 WHERE mentor_id = :mentor_id AND status = 'active'";
         
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':mentor_id', $mentorId);
         $stmt->execute();
         
         $result = $stmt->fetch();
-        return $result['current_mentees'] >= $result['max_mentees'];
+        $currentMentees = $result['current_mentees'];
+        
+        // Default max mentees is 3 if not set in system_settings
+        $maxMentees = 3;
+        
+        return $currentMentees >= $maxMentees;
     }
 
-    private function hasPendingRequest($menteeId, $mentorId) {
+    public function hasPendingRequest($menteeId, $mentorId) {
         $query = "SELECT COUNT(*) FROM " . $this->requestTable . " 
                  WHERE mentee_id = :mentee_id AND mentor_id = :mentor_id AND status = 'pending'";
         
