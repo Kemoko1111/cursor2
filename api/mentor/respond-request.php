@@ -38,10 +38,8 @@ try {
     $conn = $database->getConnection();
 
     // Get the request
-    $stmt = $conn->prepare("SELECT * FROM mentorship_requests WHERE id = :id AND mentor_id = :mentor_id AND status = 'pending'");
-    $stmt->bindParam(':id', $requestId);
-    $stmt->bindParam(':mentor_id', $userId);
-    $stmt->execute();
+    $stmt = $conn->prepare("SELECT * FROM mentorship_requests WHERE id = ? AND mentor_id = ? AND status = 'pending'");
+    $stmt->execute([$requestId, $userId]);
     $request = $stmt->fetch();
 
     error_log("Request data: " . json_encode($request));
@@ -54,9 +52,8 @@ try {
         error_log("Processing acceptance for request ID: $requestId");
         
         // Check if mentor has reached capacity (max 3 mentees)
-        $capacityStmt = $conn->prepare("SELECT COUNT(*) FROM mentorships WHERE mentor_id = :mentor_id AND status = 'active'");
-        $capacityStmt->bindParam(':mentor_id', $userId);
-        $capacityStmt->execute();
+        $capacityStmt = $conn->prepare("SELECT COUNT(*) FROM mentorships WHERE mentor_id = ? AND status = 'active'");
+        $capacityStmt->execute([$userId]);
         $currentMentees = $capacityStmt->fetchColumn();
         error_log("Current mentees count: $currentMentees");
         
@@ -65,9 +62,8 @@ try {
         }
 
         // Check if mentee already has an active mentorship
-        $menteeActiveStmt = $conn->prepare("SELECT COUNT(*) FROM mentorships WHERE mentee_id = :mentee_id AND status = 'active'");
-        $menteeActiveStmt->bindParam(':mentee_id', $request['mentee_id']);
-        $menteeActiveStmt->execute();
+        $menteeActiveStmt = $conn->prepare("SELECT COUNT(*) FROM mentorships WHERE mentee_id = ? AND status = 'active'");
+        $menteeActiveStmt->execute([$request['mentee_id']]);
         $menteeActiveCount = $menteeActiveStmt->fetchColumn();
         error_log("Mentee active mentorships count: $menteeActiveCount");
         
@@ -82,62 +78,54 @@ try {
         try {
             // Update request status
             error_log("Updating request status to accepted");
-            $updateStmt = $conn->prepare("UPDATE mentorship_requests SET status = 'accepted', responded_at = NOW() WHERE id = :id");
-            $updateStmt->bindParam(':id', $requestId);
-            $updateResult = $updateStmt->execute();
+            $updateStmt = $conn->prepare("UPDATE mentorship_requests SET status = 'accepted', responded_at = NOW() WHERE id = ?");
+            $updateResult = $updateStmt->execute([$requestId]);
             error_log("Request update result: " . ($updateResult ? 'success' : 'failed'));
 
             // Create mentorship
             error_log("Creating mentorship record");
-            $mentorshipStmt = $conn->prepare("INSERT INTO mentorships (request_id, mentee_id, mentor_id, start_date, status, meeting_frequency) VALUES (:request_id, :mentee_id, :mentor_id, CURDATE(), 'active', 'weekly')");
-            $mentorshipStmt->bindParam(':request_id', $requestId);
-            $mentorshipStmt->bindParam(':mentee_id', $request['mentee_id']);
-            $mentorshipStmt->bindParam(':mentor_id', $userId);
-            $mentorshipResult = $mentorshipStmt->execute();
+            $mentorshipStmt = $conn->prepare("INSERT INTO mentorships (request_id, mentee_id, mentor_id, start_date, status, meeting_frequency) VALUES (?, ?, ?, CURDATE(), 'active', 'weekly')");
+            $mentorshipResult = $mentorshipStmt->execute([$requestId, $request['mentee_id'], $userId]);
             error_log("Mentorship creation result: " . ($mentorshipResult ? 'success' : 'failed'));
 
             // Cancel other pending requests from this mentee
             error_log("Cancelling other pending requests");
-            $cancelStmt = $conn->prepare("UPDATE mentorship_requests SET status = 'cancelled' WHERE mentee_id = :mentee_id AND id != :request_id AND status = 'pending'");
-            $cancelStmt->bindParam(':mentee_id', $request['mentee_id']);
-            $cancelStmt->bindParam(':request_id', $requestId);
-            $cancelResult = $cancelStmt->execute();
+            $cancelStmt = $conn->prepare("UPDATE mentorship_requests SET status = 'cancelled' WHERE mentee_id = ? AND id != ? AND status = 'pending'");
+            $cancelResult = $cancelStmt->execute([$request['mentee_id'], $requestId]);
             error_log("Cancel other requests result: " . ($cancelResult ? 'success' : 'failed'));
 
             // Create notification for mentee
             error_log("Creating notification for mentee");
-            $notificationStmt = $conn->prepare("INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (:user_id, 'request_accepted', 'Mentorship Request Accepted', 'Your mentorship request has been accepted! You can now start communicating with your mentor.', :related_id)");
-            $notificationStmt->bindParam(':user_id', $request['mentee_id']);
-            $notificationStmt->bindParam(':related_id', $requestId);
-            $notificationResult = $notificationStmt->execute();
+            $notificationStmt = $conn->prepare("INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, 'request_accepted', 'Mentorship Request Accepted', 'Your mentorship request has been accepted! You can now start communicating with your mentor.', ?)");
+            $notificationResult = $notificationStmt->execute([$request['mentee_id'], $requestId]);
             error_log("Notification creation result: " . ($notificationResult ? 'success' : 'failed'));
 
             $conn->commit();
             error_log("Transaction committed successfully");
             echo json_encode(['success' => true, 'message' => 'Request accepted and mentorship started.']);
+            
         } catch (Exception $e) {
             error_log("Error during transaction: " . $e->getMessage());
             $conn->rollBack();
             throw $e;
         }
+        
     } elseif ($action === 'rejected') {
         error_log("Processing rejection for request ID: $requestId");
         
         // Reject: update request
-        $updateStmt = $conn->prepare("UPDATE mentorship_requests SET status = 'rejected', responded_at = NOW() WHERE id = :id");
-        $updateStmt->bindParam(':id', $requestId);
-        $updateResult = $updateStmt->execute();
+        $updateStmt = $conn->prepare("UPDATE mentorship_requests SET status = 'rejected', responded_at = NOW() WHERE id = ?");
+        $updateResult = $updateStmt->execute([$requestId]);
         error_log("Request rejection update result: " . ($updateResult ? 'success' : 'failed'));
 
         // Create notification for mentee
-        $notificationStmt = $conn->prepare("INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (:user_id, 'request_rejected', 'Mentorship Request Rejected', 'Your mentorship request has been declined.', :related_id)");
-        $notificationStmt->bindParam(':user_id', $request['mentee_id']);
-        $notificationStmt->bindParam(':related_id', $requestId);
-        $notificationResult = $notificationStmt->execute();
+        $notificationStmt = $conn->prepare("INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, 'request_rejected', 'Mentorship Request Rejected', 'Your mentorship request has been declined.', ?)");
+        $notificationResult = $notificationStmt->execute([$request['mentee_id'], $requestId]);
         error_log("Rejection notification result: " . ($notificationResult ? 'success' : 'failed'));
 
         echo json_encode(['success' => true, 'message' => 'Request rejected.']);
     }
+
 } catch (Exception $e) {
     error_log('Mentor respond request error: ' . $e->getMessage());
     error_log('Stack trace: ' . $e->getTraceAsString());
