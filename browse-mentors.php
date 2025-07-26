@@ -25,7 +25,61 @@ $yearOfStudy = $_GET['year_of_study'] ?? '';
 $search = $_GET['search'] ?? '';
 
 // Get available mentors
-$mentors = $userModel->getAvailableMentors($userId, [
+function getAllMentors($menteeId, $filters = []) {
+    try {
+        $database = new Database();
+        $conn = $database->getConnection();
+        
+        $params = [];
+        $where = [
+            "u.role = 'mentor'"
+            // No status or email_verified filter
+        ];
+
+        if (!empty($filters['department'])) {
+            $where[] = 'u.department = :department';
+            $params[':department'] = $filters['department'];
+        }
+        if (!empty($filters['year_of_study'])) {
+            $where[] = 'u.year_of_study = :year_of_study';
+            $params[':year_of_study'] = $filters['year_of_study'];
+        }
+        if (!empty($filters['search'])) {
+            $where[] = '(u.first_name LIKE :search OR u.last_name LIKE :search OR u.bio LIKE :search)';
+            $params[':search'] = '%' . $filters['search'] . '%';
+        }
+
+        $query = "SELECT u.*, 
+                                 (SELECT AVG(r.rating) FROM reviews r WHERE r.mentor_id = u.id) as rating,
+                                 (SELECT COUNT(*) FROM reviews r WHERE r.mentor_id = u.id) as review_count
+                          FROM users u
+                          WHERE " . implode(' AND ', $where) . "
+                          ORDER BY u.created_at DESC";
+        $stmt = $conn->prepare($query);
+        foreach ($params as $key => $val) {
+            $stmt->bindValue($key, $val);
+        }
+        $stmt->execute();
+        $mentors = $stmt->fetchAll();
+
+        // For each mentor, check if the mentee already has an active mentorship with them
+        foreach ($mentors as &$mentor) {
+            $mentor['has_active_mentorship'] = false;
+            $checkQuery = "SELECT COUNT(*) FROM mentorships WHERE mentor_id = :mentor_id AND mentee_id = :mentee_id AND status = 'active'";
+            $checkStmt = $conn->prepare($checkQuery);
+            $checkStmt->bindValue(':mentor_id', $mentor['id']);
+            $checkStmt->bindValue(':mentee_id', $menteeId);
+            $checkStmt->execute();
+            $mentor['has_active_mentorship'] = $checkStmt->fetchColumn() > 0;
+        }
+        return $mentors;
+    } catch (Exception $e) {
+        error_log("Error getting all mentors: " . $e->getMessage());
+        return [];
+    }
+}
+
+$mentors = getAllMentors($userId, [
     'department' => $department,
     'year_of_study' => $yearOfStudy,
     'search' => $search
@@ -280,13 +334,12 @@ $pageTitle = 'Browse Mentors - Menteego';
                                 <?php endif; ?>
 
                                 <div class="d-grid">
-                                    <?php if ($mentor['active_mentees'] >= 3): ?>
+                                    <?php if ($mentor['has_active_mentorship']): ?>
                                         <button class="btn btn-secondary" disabled>
-                                            <i class="fas fa-user-times me-1"></i>At Full Capacity
+                                            <i class="fas fa-user-times me-1"></i>Already Your Mentor
                                         </button>
                                     <?php else: ?>
-                                        <button class="btn btn-primary" 
-                                                onclick="openRequestModal(<?php echo $mentor['id']; ?>, '<?php echo htmlspecialchars($mentor['first_name'] . ' ' . $mentor['last_name']); ?>')">
+                                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#requestModal" data-mentor-id="<?php echo $mentor['id']; ?>">
                                             <i class="fas fa-paper-plane me-1"></i>Request Mentorship
                                         </button>
                                     <?php endif; ?>
