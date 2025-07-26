@@ -298,9 +298,8 @@ $pageTitle = 'Browse Mentors - Menteego';
             <?php endif; ?>
         </div>
 
-        <!-- All Mentors Section -->
         <?php
-        // Get ALL mentors in the system (regardless of current mentorship status)
+        // --- Get all mentors in the system (regardless of current mentorship status) ---
         function getAllMentors($filters = []) {
             try {
                 $database = new Database();
@@ -361,7 +360,6 @@ $pageTitle = 'Browse Mentors - Menteego';
                     <p class="text-muted mb-4">Browse all available mentors in the system. Some may already be mentoring other students.</p>
                 </div>
             </div>
-
             <div class="row">
                 <?php foreach ($allMentors as $mentor): ?>
                     <div class="col-lg-4 col-md-6 mb-4">
@@ -393,14 +391,11 @@ $pageTitle = 'Browse Mentors - Menteego';
                                         </p>
                                     </div>
                                 </div>
-
                                 <?php if ($mentor['bio']): ?>
                                     <p class="card-text text-truncate-2 mb-3">
                                         <?php echo htmlspecialchars($mentor['bio']); ?>
                                     </p>
                                 <?php endif; ?>
-
-                                <!-- Current Mentees -->
                                 <?php if ($mentor['active_mentees'] > 0): ?>
                                     <div class="mb-3">
                                         <span class="badge bg-info">
@@ -409,70 +404,11 @@ $pageTitle = 'Browse Mentors - Menteego';
                                         </span>
                                     </div>
                                 <?php endif; ?>
-
-                                <!-- Skills -->
-                                <?php
-                                // Get mentor skills
-                                $mentorSkills = [];
-                                try {
-                                    $database = new Database();
-                                    $conn = $database->getConnection();
-                                    $skillsQuery = "SELECT s.name, us.proficiency_level 
-                                                   FROM user_skills us 
-                                                   JOIN skills s ON us.skill_id = s.id 
-                                                   WHERE us.user_id = :user_id AND us.is_teaching_skill = 1 
-                                                   ORDER BY us.proficiency_level DESC 
-                                                   LIMIT 5";
-                                    $skillsStmt = $conn->prepare($skillsQuery);
-                                    $skillsStmt->bindParam(':user_id', $mentor['id']);
-                                    $skillsStmt->execute();
-                                    $mentorSkills = $skillsStmt->fetchAll();
-                                } catch (Exception $e) {
-                                    // Silently handle error
-                                }
-                                ?>
-                                
-                                <?php if (!empty($mentorSkills)): ?>
-                                    <div class="mb-3">
-                                        <small class="text-muted d-block mb-2">
-                                            <i class="fas fa-tools me-1"></i>Skills:
-                                        </small>
-                                        <?php foreach ($mentorSkills as $skill): ?>
-                                            <span class="skill-tag skill-<?php echo htmlspecialchars($skill['proficiency_level']); ?>">
-                                                <?php echo htmlspecialchars($skill['name']); ?>
-                                            </span>
-                                        <?php endforeach; ?>
-                                    </div>
-                                <?php endif; ?>
-
-                                <!-- Rating -->
-                                <?php if ($mentor['rating']): ?>
-                                    <div class="mb-3">
-                                        <div class="d-flex align-items-center">
-                                            <div class="text-warning me-2">
-                                                <?php for ($i = 1; $i <= 5; $i++): ?>
-                                                    <i class="fas fa-star<?php echo ($i <= $mentor['rating']) ? '' : '-o'; ?>"></i>
-                                                <?php endfor; ?>
-                                            </div>
-                                            <small class="text-muted">
-                                                <?php echo number_format($mentor['rating'], 1); ?> 
-                                                (<?php echo $mentor['review_count']; ?> reviews)
-                                            </small>
-                                        </div>
-                                    </div>
-                                <?php endif; ?>
-
                                 <div class="d-grid">
-                                    <?php if ($mentor['active_mentees'] >= 3): ?>
-                                        <button class="btn btn-secondary" disabled>
-                                            <i class="fas fa-user-times me-1"></i>At Full Capacity
-                                        </button>
-                                    <?php else: ?>
-                                        <button class="btn btn-primary" 
-                                                onclick="openRequestModal(<?php echo $mentor['id']; ?>, '<?php echo htmlspecialchars($mentor['first_name'] . ' ' . $mentor['last_name']); ?>')">
-                                            <i class="fas fa-paper-plane me-1"></i>Request Mentorship
-                                        </button>
-                                    <?php endif; ?>
+                                    <button class="btn btn-primary" 
+                                            onclick="openRequestModal(<?php echo $mentor['id']; ?>, '<?php echo htmlspecialchars($mentor['first_name'] . ' ' . $mentor['last_name']); ?>')">
+                                        <i class="fas fa-paper-plane me-1"></i>Request Mentorship
+                                    </button>
                                 </div>
                             </div>
                         </div>
