@@ -236,10 +236,22 @@ $pageTitle = 'Messages - Menteego';
             border-radius: 0.375rem;
             padding: 0.75rem;
             margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .resource-item:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
         .resource-icon {
             font-size: 1.5rem;
             margin-right: 0.5rem;
+        }
+        .resource-download {
+            font-size: 0.875rem;
+            opacity: 0.8;
+            margin-top: 0.5rem;
         }
         .file-upload-area {
             border: 2px dashed #dee2e6;
@@ -435,10 +447,14 @@ $pageTitle = 'Messages - Menteego';
                                             // Check if message contains a file link (resource)
                                             if (strpos($message['message'], 'uploads/resources/') !== false) {
                                                 $fileName = basename($message['message']);
-                                                echo '<div class="resource-item">';
+                                                $filePath = $message['message'];
+                                                echo '<div class="resource-item" onclick="downloadResource(\'' . htmlspecialchars($filePath) . '\', \'' . htmlspecialchars($fileName) . '\')">';
                                                 echo '<i class="fas fa-file-alt resource-icon"></i>';
                                                 echo '<strong>' . htmlspecialchars($fileName) . '</strong><br>';
                                                 echo '<small class="text-muted">Shared resource</small>';
+                                                echo '<div class="resource-download">';
+                                                echo '<i class="fas fa-download me-1"></i>Click to download';
+                                                echo '</div>';
                                                 echo '</div>';
                                             } else {
                                                 echo nl2br(htmlspecialchars($message['message']));
@@ -636,6 +652,27 @@ $pageTitle = 'Messages - Menteego';
                     messageForm.dispatchEvent(new Event('submit'));
                 }
             });
+        }
+
+        // Download resource function
+        function downloadResource(filePath, fileName) {
+            try {
+                // Create a temporary link element
+                const link = document.createElement('a');
+                link.href = filePath;
+                link.download = fileName;
+                link.target = '_blank';
+                
+                // Append to body, click, and remove
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showAlert('Download started: ' + fileName, 'success');
+            } catch (error) {
+                console.error('Download error:', error);
+                showAlert('Failed to download file. Please try again.', 'danger');
+            }
         }
 
         // Resource sharing functionality
