@@ -6,7 +6,10 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-if (!isset($_SESSION['user_id'])) redirect('/auth/login.php');
+if (!isset($_SESSION['user_id'])) {
+    header('Location: /auth/login.php');
+    exit();
+}
 
 $userId = $_SESSION['user_id'];
 $userRole = $_SESSION['user_role'];
@@ -82,59 +85,6 @@ function getMentorshipMessages($mentorshipId, $userId) {
     }
 }
 
-// Send message
-function sendMessage($senderId, $mentorshipId, $content, $messageType = 'text') {
-    global $db_host, $db_name, $db_user, $db_pass;
-    try {
-        $pdo = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        
-        // Get mentorship to determine receiver
-        $mentorshipStmt = $pdo->prepare("SELECT mentor_id, mentee_id FROM mentorships WHERE id = ?");
-        $mentorshipStmt->execute([$mentorshipId]);
-        $mentorship = $mentorshipStmt->fetch(PDO::FETCH_ASSOC);
-        
-        if (!$mentorship) {
-            error_log("Mentorship not found: " . $mentorshipId);
-            return false;
-        }
-        
-        $receiverId = $mentorship['mentor_id'] == $senderId ? $mentorship['mentee_id'] : $mentorship['mentor_id'];
-        
-        // Check if messages table exists, if not create it
-        $tableCheck = $pdo->query("SHOW TABLES LIKE 'messages'");
-        if ($tableCheck->rowCount() == 0) {
-            // Create messages table
-            $createTable = "CREATE TABLE messages (
-                id INT PRIMARY KEY AUTO_INCREMENT,
-                sender_id INT NOT NULL,
-                receiver_id INT NOT NULL,
-                mentorship_id INT NOT NULL,
-                content TEXT NOT NULL,
-                message_type ENUM('text', 'resource') DEFAULT 'text',
-                is_read BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )";
-            $pdo->exec($createTable);
-        }
-        
-        $query = "INSERT INTO messages (sender_id, receiver_id, mentorship_id, content, message_type, created_at) 
-                  VALUES (?, ?, ?, ?, ?, NOW())";
-        $stmt = $pdo->prepare($query);
-        $result = $stmt->execute([$senderId, $receiverId, $mentorshipId, $content, $messageType]);
-        
-        if (!$result) {
-            error_log("Failed to insert message: " . implode(", ", $stmt->errorInfo()));
-            return false;
-        }
-        
-        return true;
-    } catch (Exception $e) {
-        error_log("Error sending message: " . $e->getMessage());
-        return false;
-    }
-}
-
 // Mark messages as read
 function markMessagesAsRead($mentorshipId, $userId) {
     global $db_host, $db_name, $db_user, $db_pass;
@@ -181,30 +131,6 @@ function getUserById($userId) {
     } catch (Exception $e) {
         error_log("Error getting user: " . $e->getMessage());
         return null;
-    }
-}
-
-// Handle sending new message
-$messageSent = false;
-$messageError = '';
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['message_content'])) {
-    $messageContent = trim($_POST['message_content']);
-    $mentorshipId = $_POST['mentorship_id'] ?? null;
-    $messageType = $_POST['message_type'] ?? 'text';
-    
-    if (!empty($messageContent) && $mentorshipId) {
-        $messageSent = sendMessage($userId, $mentorshipId, $messageContent, $messageType);
-        if (!$messageSent) {
-            $messageError = 'Failed to send message. Please check your connection and try again.';
-            error_log("Message send failed for user $userId, mentorship $mentorshipId");
-        } else {
-            // Redirect to prevent form resubmission
-            header("Location: " . $_SERVER['REQUEST_URI']);
-            exit();
-        }
-    } else {
-        $messageError = 'Please enter a message.';
     }
 }
 
@@ -330,6 +256,13 @@ $pageTitle = 'Messages - Menteego';
             border-color: #007bff;
             background: #e3f2fd;
         }
+        .alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 300px;
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -406,13 +339,6 @@ $pageTitle = 'Messages - Menteego';
 
     <!-- Main Content -->
     <div class="container my-5">
-        <?php if ($messageError): ?>
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <?php echo htmlspecialchars($messageError); ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-        
         <div class="row">
             <!-- Conversations List -->
             <div class="col-lg-4">
@@ -551,14 +477,14 @@ $pageTitle = 'Messages - Menteego';
 
                         <!-- Message Input -->
                         <div class="card-footer p-0">
-                            <form method="POST" class="d-flex">
+                            <form id="messageForm" class="d-flex">
                                 <input type="hidden" name="mentorship_id" value="<?php echo $mentorship['id']; ?>">
                                 <input type="hidden" name="message_type" value="text" id="messageType">
                                 
                                 <input type="text" class="form-control chat-input border-0" 
-                                       name="message_content" placeholder="Type your message..." 
+                                       name="message_content" id="messageInput" placeholder="Type your message..." 
                                        required autocomplete="off">
-                                <button type="submit" class="btn btn-primary px-4">
+                                <button type="submit" class="btn btn-primary px-4" id="sendButton">
                                     <i class="fas fa-paper-plane"></i>
                                 </button>
                             </form>
@@ -592,6 +518,24 @@ $pageTitle = 'Messages - Menteego';
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
+        // Show alert function
+        function showAlert(message, type = 'info') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(alertDiv);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+
         // Auto-scroll to bottom of messages
         function scrollToBottom() {
             const chatMessages = document.getElementById('chatMessages');
@@ -605,18 +549,93 @@ $pageTitle = 'Messages - Menteego';
             scrollToBottom();
         });
 
-        // Handle form submission to auto-scroll
-        document.querySelector('form')?.addEventListener('submit', function() {
-            setTimeout(scrollToBottom, 100);
-        });
+        // Handle message form submission with AJAX
+        const messageForm = document.getElementById('messageForm');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+
+        if (messageForm) {
+            messageForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const message = messageInput.value.trim();
+                const mentorshipId = document.querySelector('input[name="mentorship_id"]').value;
+                
+                if (!message) {
+                    showAlert('Please enter a message', 'warning');
+                    return;
+                }
+                
+                // Disable form during submission
+                sendButton.disabled = true;
+                sendButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                
+                try {
+                    console.log('Sending message:', { message, mentorship_id: mentorshipId });
+                    
+                    const response = await fetch('/api/messages/send-message.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message_content: message,
+                            mentorship_id: mentorshipId,
+                            message_type: 'text'
+                        })
+                    });
+                    
+                    console.log('Response status:', response.status);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const responseText = await response.text();
+                    console.log('Response text:', responseText);
+                    
+                    let result;
+                    try {
+                        result = JSON.parse(responseText);
+                    } catch (parseError) {
+                        console.error('JSON parse error:', parseError);
+                        throw new Error('Invalid JSON response from server: ' + responseText);
+                    }
+                    
+                    console.log('Parsed result:', result);
+                    
+                    if (result.success) {
+                        showAlert('Message sent successfully!', 'success');
+                        messageInput.value = '';
+                        
+                        // Reload the page to show the new message
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        showAlert(result.message || 'Failed to send message', 'danger');
+                    }
+                } catch (error) {
+                    console.error('Error sending message:', error);
+                    showAlert('Network error: ' + error.message, 'danger');
+                } finally {
+                    // Re-enable form
+                    sendButton.disabled = false;
+                    sendButton.innerHTML = '<i class="fas fa-paper-plane"></i>';
+                }
+            });
+        }
 
         // Enter key to send message
-        document.querySelector('input[name="message_content"]')?.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.closest('form').submit();
-            }
-        });
+        if (messageInput) {
+            messageInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    messageForm.dispatchEvent(new Event('submit'));
+                }
+            });
+        }
 
         // Resource sharing functionality
         let selectedFiles = [];
@@ -688,7 +707,7 @@ $pageTitle = 'Messages - Menteego';
 
         async function shareResources() {
             if (selectedFiles.length === 0) {
-                alert('Please select files to share');
+                showAlert('Please select files to share', 'warning');
                 return;
             }
 
@@ -709,15 +728,18 @@ $pageTitle = 'Messages - Menteego';
                 const result = await response.json();
 
                 if (result.success) {
+                    showAlert('Resources shared successfully!', 'success');
                     // Close modal and refresh page
                     bootstrap.Modal.getInstance(document.getElementById('resourceModal')).hide();
-                    window.location.reload();
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
                 } else {
-                    alert('Failed to share resources: ' + result.message);
+                    showAlert('Failed to share resources: ' + result.message, 'danger');
                 }
             } catch (error) {
                 console.error('Error sharing resources:', error);
-                alert('Failed to share resources. Please try again.');
+                showAlert('Failed to share resources. Please try again.', 'danger');
             }
         }
     </script>
