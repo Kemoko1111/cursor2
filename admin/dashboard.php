@@ -32,18 +32,18 @@ function getDashboardStats() {
         $stats['total_users'] = $stmt->fetch(PDO::FETCH_ASSOC)['total_users'];
         
         // Total mentors
-        $stmt = $pdo->query("SELECT COUNT(*) as total_mentors FROM users WHERE user_role = 'mentor'");
+        $stmt = $pdo->query("SELECT COUNT(*) as total_mentors FROM users WHERE role = 'mentor'");
         $stats['total_mentors'] = $stmt->fetch(PDO::FETCH_ASSOC)['total_mentors'];
         
         // Total mentees
-        $stmt = $pdo->query("SELECT COUNT(*) as total_mentees FROM users WHERE user_role = 'mentee'");
+        $stmt = $pdo->query("SELECT COUNT(*) as total_mentees FROM users WHERE role = 'mentee'");
         $stats['total_mentees'] = $stmt->fetch(PDO::FETCH_ASSOC)['total_mentees'];
         
-        // Active mentorships
+        // Active mentorships (using your existing schema)
         $stmt = $pdo->query("SELECT COUNT(*) as active_mentorships FROM mentorships WHERE status = 'active'");
         $stats['active_mentorships'] = $stmt->fetch(PDO::FETCH_ASSOC)['active_mentorships'];
         
-        // Pending requests
+        // Pending requests (using your existing schema)
         $stmt = $pdo->query("SELECT COUNT(*) as pending_requests FROM mentorship_requests WHERE status = 'pending'");
         $stats['pending_requests'] = $stmt->fetch(PDO::FETCH_ASSOC)['pending_requests'];
         
@@ -68,7 +68,7 @@ function getRecentUsers($limit = 10) {
         $pdo = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         
-        $query = "SELECT id, first_name, last_name, email, user_role, department, created_at 
+        $query = "SELECT id, first_name, last_name, email, role, department, created_at 
                   FROM users 
                   ORDER BY created_at DESC 
                   LIMIT ?";
@@ -402,8 +402,8 @@ $pageTitle = 'Admin Dashboard - Menteego';
                                                     <h6 class="mb-1"><?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?></h6>
                                                     <p class="mb-1 small text-muted"><?php echo htmlspecialchars($user['email']); ?></p>
                                                     <div class="d-flex justify-content-between align-items-center">
-                                                        <span class="badge bg-<?php echo $user['user_role'] === 'mentor' ? 'success' : 'info'; ?>">
-                                                            <?php echo ucfirst($user['user_role']); ?>
+                                                        <span class="badge bg-<?php echo $user['role'] === 'mentor' ? 'success' : ($user['role'] === 'admin' ? 'danger' : 'info'); ?>">
+                                                            <?php echo ucfirst($user['role']); ?>
                                                         </span>
                                                         <small class="text-muted">
                                                             <?php echo date('M j', strtotime($user['created_at'])); ?>

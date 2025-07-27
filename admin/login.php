@@ -30,21 +30,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             
-            // Check if user exists and is admin
-            $query = "SELECT * FROM users WHERE email = ? AND user_role = 'admin' AND status = 'active'";
+            // Check if user exists and is admin (using your existing schema)
+            $query = "SELECT * FROM users WHERE email = ? AND role = 'admin' AND status = 'active'";
             $stmt = $pdo->prepare($query);
             $stmt->execute([$email]);
             
             if ($stmt->rowCount() > 0) {
                 $user = $stmt->fetch(PDO::FETCH_ASSOC);
                 
-                // Verify password
-                if (password_verify($password, $user['password'])) {
+                // Verify password (using your existing password_hash field)
+                if (password_verify($password, $user['password_hash'])) {
                     // Create admin session
                     $_SESSION['user_id'] = $user['id'];
-                    $_SESSION['user_role'] = $user['user_role'];
+                    $_SESSION['user_role'] = $user['role'];
                     $_SESSION['user_name'] = $user['first_name'] . ' ' . $user['last_name'];
                     $_SESSION['last_activity'] = time();
+                    
+                    // Log admin login (using your admin_logs table)
+                    $logQuery = "INSERT INTO admin_logs (admin_id, action, target_type, details, ip_address) 
+                                VALUES (?, 'login', 'system', 'Admin login successful', ?)";
+                    $logStmt = $pdo->prepare($logQuery);
+                    $logStmt->execute([$user['id'], $_SERVER['REMOTE_ADDR']]);
                     
                     // Redirect to admin dashboard
                     header('Location: /admin/dashboard.php');
