@@ -30,15 +30,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && isset($_
     $requestId = (int)$_POST['request_id'];
     $action = $_POST['action'];
     
+    // Debug information
+    $debug_info = "Form submitted - Request ID: $requestId, Action: $action, User ID: $userId, Role: $userRole";
+    
     if ($userRole === 'mentor' && in_array($action, ['accept', 'reject'])) {
-        if ($mentorshipModel->updateRequestStatus($requestId, $action, $userId)) {
-            $success = "Request " . ($action === 'accept' ? 'accepted' : 'rejected') . " successfully!";
-            // Refresh data
-            $pendingRequests = $mentorshipModel->getMentorRequests($userId, 'pending');
-            $allRequests = $mentorshipModel->getMentorRequests($userId);
-        } else {
-            $error = "Failed to update request. Please try again.";
+        try {
+            $result = $mentorshipModel->updateRequestStatus($requestId, $action, $userId);
+            $debug_info .= " - updateRequestStatus result: " . ($result ? 'true' : 'false');
+            
+            if ($result) {
+                $success = "Request " . ($action === 'accept' ? 'accepted' : 'rejected') . " successfully!";
+                // Refresh data
+                $pendingRequests = $mentorshipModel->getMentorRequests($userId, 'pending');
+                $allRequests = $mentorshipModel->getMentorRequests($userId);
+            } else {
+                $error = "Failed to update request. Please try again.";
+            }
+        } catch (Exception $e) {
+            $error = "Error: " . $e->getMessage();
+            $debug_info .= " - Exception: " . $e->getMessage();
         }
+    } else {
+        $error = "Invalid action or user role.";
+        $debug_info .= " - Invalid action or role";
     }
 }
 
@@ -153,6 +167,13 @@ $pageTitle = 'Requests - Menteego';
         <?php if (isset($error)): ?>
             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                 <?php echo $error; ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <?php endif; ?>
+
+        <?php if (isset($debug_info)): ?>
+            <div class="alert alert-info alert-dismissible fade show" role="alert">
+                <strong>Debug Info:</strong> <?php echo htmlspecialchars($debug_info); ?>
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         <?php endif; ?>

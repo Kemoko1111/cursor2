@@ -392,6 +392,54 @@ class User {
         return $stmt->fetch();
     }
 
+    // Returns mentors not already in an active mentorship with this mentee, filtered by department, year_of_study, and search
+    public function getAvailableMentors($menteeId, $filters = []) {
+        $params = [];
+        $where = [
+            "u.role = 'mentor'",
+            "u.status = 'active'",
+            "u.email_verified = 1",
+            // Exclude mentors already in an active mentorship with this mentee
+            "u.id NOT IN (SELECT m.mentor_id FROM mentorships m WHERE m.mentee_id = :mentee_id AND m.status = 'active')"
+        ];
+        $params[':mentee_id'] = $menteeId;
+
+        if (!empty($filters['department'])) {
+            $where[] = 'u.department = :department';
+            $params[':department'] = $filters['department'];
+        }
+        if (!empty($filters['year_of_study'])) {
+            $where[] = 'u.year_of_study = :year_of_study';
+            $params[':year_of_study'] = $filters['year_of_study'];
+        }
+        if (!empty($filters['search'])) {
+            $where[] = '(u.first_name LIKE :search OR u.last_name LIKE :search OR u.bio LIKE :search OR u.skills LIKE :search)';
+            $params[':search'] = '%' . $filters['search'] . '%';
+        }
+
+        $query = "SELECT u.*, 
+                         (SELECT AVG(r.rating) FROM reviews r WHERE r.mentor_id = u.id) as rating,
+                         (SELECT COUNT(*) FROM reviews r WHERE r.mentor_id = u.id) as review_count
+                  FROM users u
+                  WHERE " . implode(' AND ', $where) . "
+                  ORDER BY u.created_at DESC";
+        $stmt = $this->conn->prepare($query);
+        foreach ($params as $key => $val) {
+            $stmt->bindValue($key, $val);
+        }
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    // Returns all unique department names from users table
+    public function getAllDepartments() {
+        $query = "SELECT DISTINCT department FROM users WHERE department IS NOT NULL AND department != '' ORDER BY department ASC";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+        $departments = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        return $departments;
+    }
+
     private function emailExists($email) {
         $query = "SELECT id FROM " . $this->table . " WHERE email = :email";
         $stmt = $this->conn->prepare($query);
