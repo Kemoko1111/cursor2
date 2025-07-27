@@ -18,45 +18,87 @@ $db_name = 'if0_39537447_menteego_db';
 $db_user = 'if0_39537447';
 $db_pass = 'AeFe44u4EAs';
 
+// Handle user actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    $user_id = $_POST['user_id'] ?? '';
+    
+    try {
+        $pdo = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        switch ($action) {
+            case 'suspend':
+                $stmt = $pdo->prepare("UPDATE users SET status = 'suspended' WHERE id = ?");
+                $stmt->execute([$user_id]);
+                
+                // Log admin action
+                $logStmt = $pdo->prepare("INSERT INTO admin_logs (admin_id, action, target_type, target_id, details, ip_address) VALUES (?, 'suspend_user', 'users', ?, 'User suspended', ?)");
+                $logStmt->execute([$userId, $user_id, $_SERVER['REMOTE_ADDR']]);
+                
+                $success = "User suspended successfully";
+                break;
+                
+            case 'activate':
+                $stmt = $pdo->prepare("UPDATE users SET status = 'active' WHERE id = ?");
+                $stmt->execute([$user_id]);
+                
+                // Log admin action
+                $logStmt = $pdo->prepare("INSERT INTO admin_logs (admin_id, action, target_type, target_id, details, ip_address) VALUES (?, 'activate_user', 'users', ?, 'User activated', ?)");
+                $logStmt->execute([$userId, $user_id, $_SERVER['REMOTE_ADDR']]);
+                
+                $success = "User activated successfully";
+                break;
+        }
+    } catch (Exception $e) {
+        error_log("Error in user action: " . $e->getMessage());
+        $error = "Failed to perform action";
+    }
+}
+
+// Get filter parameters
+$search = $_GET['search'] ?? '';
+$role_filter = $_GET['role'] ?? '';
+$status_filter = $_GET['status'] ?? '';
+$department_filter = $_GET['department'] ?? '';
+$page = max(1, intval($_GET['page'] ?? 1));
+$per_page = 20;
+$offset = ($page - 1) * $per_page;
+
 // Admin functions
-function getAllUsers($page = 1, $limit = 20, $search = '', $role = '', $department = '') {
+function getAllUsers($search = '', $role = '', $status = '', $department = '', $limit = 20, $offset = 0) {
     global $db_host, $db_name, $db_user, $db_pass;
     try {
         $pdo = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         
-        $offset = ($page - 1) * $limit;
-        $whereConditions = [];
+        $where_conditions = [];
         $params = [];
         
         if (!empty($search)) {
-            $whereConditions[] = "(first_name LIKE ? OR last_name LIKE ? OR email LIKE ?)";
-            $searchTerm = "%$search%";
-            $params[] = $searchTerm;
-            $params[] = $searchTerm;
-            $params[] = $searchTerm;
+            $where_conditions[] = "(first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR student_id LIKE ?)";
+            $search_param = "%$search%";
+            $params = array_merge($params, [$search_param, $search_param, $search_param, $search_param]);
         }
         
         if (!empty($role)) {
-            $whereConditions[] = "user_role = ?";
+            $where_conditions[] = "role = ?";
             $params[] = $role;
         }
         
+        if (!empty($status)) {
+            $where_conditions[] = "status = ?";
+            $params[] = $status;
+        }
+        
         if (!empty($department)) {
-            $whereConditions[] = "department = ?";
+            $where_conditions[] = "department = ?";
             $params[] = $department;
         }
         
-        $whereClause = !empty($whereConditions) ? 'WHERE ' . implode(' AND ', $whereConditions) : '';
+        $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
         
-        $query = "SELECT u.*, 
-                         (SELECT COUNT(*) FROM mentorships WHERE mentor_id = u.id AND status = 'active') as active_mentorships,
-                         (SELECT COUNT(*) FROM mentorship_requests WHERE mentee_id = u.id AND status = 'pending') as pending_requests
-                  FROM users u 
-                  $whereClause
-                  ORDER BY u.created_at DESC 
-                  LIMIT ? OFFSET ?";
-        
+        $query = "SELECT * FROM users $where_clause ORDER BY created_at DESC LIMIT ? OFFSET ?";
         $params[] = $limit;
         $params[] = $offset;
         
@@ -69,36 +111,39 @@ function getAllUsers($page = 1, $limit = 20, $search = '', $role = '', $departme
     }
 }
 
-function getTotalUsers($search = '', $role = '', $department = '') {
+function getTotalUsers($search = '', $role = '', $status = '', $department = '') {
     global $db_host, $db_name, $db_user, $db_pass;
     try {
         $pdo = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         
-        $whereConditions = [];
+        $where_conditions = [];
         $params = [];
         
         if (!empty($search)) {
-            $whereConditions[] = "(first_name LIKE ? OR last_name LIKE ? OR email LIKE ?)";
-            $searchTerm = "%$search%";
-            $params[] = $searchTerm;
-            $params[] = $searchTerm;
-            $params[] = $searchTerm;
+            $where_conditions[] = "(first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR student_id LIKE ?)";
+            $search_param = "%$search%";
+            $params = array_merge($params, [$search_param, $search_param, $search_param, $search_param]);
         }
         
         if (!empty($role)) {
-            $whereConditions[] = "user_role = ?";
+            $where_conditions[] = "role = ?";
             $params[] = $role;
         }
         
+        if (!empty($status)) {
+            $where_conditions[] = "status = ?";
+            $params[] = $status;
+        }
+        
         if (!empty($department)) {
-            $whereConditions[] = "department = ?";
+            $where_conditions[] = "department = ?";
             $params[] = $department;
         }
         
-        $whereClause = !empty($whereConditions) ? 'WHERE ' . implode(' AND ', $whereConditions) : '';
+        $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
         
-        $query = "SELECT COUNT(*) as total FROM users $whereClause";
+        $query = "SELECT COUNT(*) as total FROM users $where_clause";
         $stmt = $pdo->prepare($query);
         $stmt->execute($params);
         return $stmt->fetch(PDO::FETCH_ASSOC)['total'];
@@ -124,42 +169,11 @@ function getDepartments() {
     }
 }
 
-// Handle user actions
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = $_POST['action'] ?? '';
-    $userId = $_POST['user_id'] ?? '';
-    
-    if ($action === 'suspend' || $action === 'activate') {
-        // Update user status
-        try {
-            $pdo = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
-            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            
-            $status = ($action === 'suspend') ? 'suspended' : 'active';
-            $query = "UPDATE users SET status = ? WHERE id = ?";
-            $stmt = $pdo->prepare($query);
-            $stmt->execute([$status, $userId]);
-            
-            $message = ($action === 'suspend') ? 'User suspended successfully' : 'User activated successfully';
-            $messageType = 'success';
-        } catch (Exception $e) {
-            $message = 'Error updating user status';
-            $messageType = 'danger';
-        }
-    }
-}
-
-// Get filter parameters
-$page = $_GET['page'] ?? 1;
-$search = $_GET['search'] ?? '';
-$role = $_GET['role'] ?? '';
-$department = $_GET['department'] ?? '';
-
 // Get data
-$users = getAllUsers($page, 20, $search, $role, $department);
-$totalUsers = getTotalUsers($search, $role, $department);
+$users = getAllUsers($search, $role_filter, $status_filter, $department_filter, $per_page, $offset);
+$total_users = getTotalUsers($search, $role_filter, $status_filter, $department_filter);
 $departments = getDepartments();
-$totalPages = ceil($totalUsers / 20);
+$total_pages = ceil($total_users / $per_page);
 
 $pageTitle = 'User Management - Admin Dashboard';
 ?>
@@ -193,14 +207,19 @@ $pageTitle = 'User Management - Admin Dashboard';
             background: rgba(255, 255, 255, 0.1);
             transform: translateX(5px);
         }
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            object-fit: cover;
+        .user-card {
+            transition: transform 0.2s ease;
+        }
+        .user-card:hover {
+            transform: translateY(-2px);
         }
         .status-badge {
             font-size: 0.75rem;
+        }
+        .search-filters {
+            background: #f8f9fa;
+            border-radius: 0.5rem;
+            padding: 1rem;
         }
     </style>
 </head>
@@ -253,29 +272,56 @@ $pageTitle = 'User Management - Admin Dashboard';
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <div>
                         <h2 class="mb-1">User Management</h2>
-                        <p class="text-muted mb-0">Manage all platform users</p>
+                        <p class="text-muted mb-0">Manage platform users and their accounts</p>
                     </div>
                     <div class="text-end">
-                        <span class="badge bg-primary"><?php echo $totalUsers; ?> Total Users</span>
+                        <span class="badge bg-primary"><?php echo number_format($total_users); ?> Total Users</span>
                     </div>
                 </div>
 
-                <!-- Filters -->
+                <!-- Alerts -->
+                <?php if (!empty($success)): ?>
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <?php echo htmlspecialchars($success); ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($error)): ?>
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <?php echo htmlspecialchars($error); ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <?php endif; ?>
+
+                <!-- Search and Filters -->
                 <div class="card shadow-sm mb-4">
-                    <div class="card-body">
+                    <div class="card-body search-filters">
                         <form method="GET" class="row g-3">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label for="search" class="form-label">Search</label>
                                 <input type="text" class="form-control" id="search" name="search" 
                                        value="<?php echo htmlspecialchars($search); ?>" 
-                                       placeholder="Search by name or email">
+                                       placeholder="Name, email, or student ID">
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <label for="role" class="form-label">Role</label>
                                 <select class="form-select" id="role" name="role">
                                     <option value="">All Roles</option>
-                                    <option value="mentor" <?php echo $role === 'mentor' ? 'selected' : ''; ?>>Mentor</option>
-                                    <option value="mentee" <?php echo $role === 'mentee' ? 'selected' : ''; ?>>Mentee</option>
+                                    <option value="mentee" <?php echo $role_filter === 'mentee' ? 'selected' : ''; ?>>Mentee</option>
+                                    <option value="mentor" <?php echo $role_filter === 'mentor' ? 'selected' : ''; ?>>Mentor</option>
+                                    <option value="admin" <?php echo $role_filter === 'admin' ? 'selected' : ''; ?>>Admin</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="status" class="form-label">Status</label>
+                                <select class="form-select" id="status" name="status">
+                                    <option value="">All Status</option>
+                                    <option value="active" <?php echo $status_filter === 'active' ? 'selected' : ''; ?>>Active</option>
+                                    <option value="inactive" <?php echo $status_filter === 'inactive' ? 'selected' : ''; ?>>Inactive</option>
+                                    <option value="suspended" <?php echo $status_filter === 'suspended' ? 'selected' : ''; ?>>Suspended</option>
                                 </select>
                             </div>
                             <div class="col-md-3">
@@ -284,19 +330,19 @@ $pageTitle = 'User Management - Admin Dashboard';
                                     <option value="">All Departments</option>
                                     <?php foreach ($departments as $dept): ?>
                                         <option value="<?php echo htmlspecialchars($dept); ?>" 
-                                                <?php echo $department === $dept ? 'selected' : ''; ?>>
+                                                <?php echo $department_filter === $dept ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars($dept); ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            <div class="col-md-2">
-                                <label class="form-label">&nbsp;</label>
-                                <div class="d-grid">
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-search me-1"></i>Filter
-                                    </button>
-                                </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary me-2">
+                                    <i class="fas fa-search me-1"></i>Filter
+                                </button>
+                                <a href="/admin/users.php" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times me-1"></i>Clear
+                                </a>
                             </div>
                         </form>
                     </div>
@@ -322,48 +368,52 @@ $pageTitle = 'User Management - Admin Dashboard';
                                     <thead class="table-light">
                                         <tr>
                                             <th>User</th>
-                                            <th>Role</th>
+                                            <th>Contact</th>
                                             <th>Department</th>
+                                            <th>Role</th>
                                             <th>Status</th>
-                                            <th>Activity</th>
                                             <th>Joined</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <?php foreach ($users as $user): ?>
-                                            <tr>
+                                            <tr class="user-card">
                                                 <td>
                                                     <div class="d-flex align-items-center">
-                                                        <img src="<?php echo $user['profile_image'] ? 'uploads/profiles/' . $user['profile_image'] : 'assets/images/default-avatar.png'; ?>" 
-                                                             class="user-avatar me-3" alt="">
-                                                        <div>
+                                                        <div class="flex-shrink-0">
+                                                            <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                                <i class="fas fa-user text-white"></i>
+                                                            </div>
+                                                        </div>
+                                                        <div class="flex-grow-1 ms-3">
                                                             <h6 class="mb-1"><?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?></h6>
-                                                            <small class="text-muted"><?php echo htmlspecialchars($user['email']); ?></small>
+                                                            <small class="text-muted">ID: <?php echo htmlspecialchars($user['student_id']); ?></small>
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <span class="badge bg-<?php echo $user['user_role'] === 'mentor' ? 'success' : 'info'; ?>">
-                                                        <?php echo ucfirst($user['user_role']); ?>
+                                                    <div>
+                                                        <div class="fw-semibold"><?php echo htmlspecialchars($user['email']); ?></div>
+                                                        <?php if (!empty($user['phone'])): ?>
+                                                            <small class="text-muted"><?php echo htmlspecialchars($user['phone']); ?></small>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-light text-dark">
+                                                        <?php echo htmlspecialchars($user['department']); ?>
                                                     </span>
                                                 </td>
                                                 <td>
-                                                    <?php echo htmlspecialchars($user['department'] ?? 'N/A'); ?>
+                                                    <span class="badge bg-<?php echo $user['role'] === 'mentor' ? 'success' : ($user['role'] === 'admin' ? 'danger' : 'info'); ?> status-badge">
+                                                        <?php echo ucfirst($user['role']); ?>
+                                                    </span>
                                                 </td>
                                                 <td>
-                                                    <span class="badge bg-success status-badge">Active</span>
-                                                </td>
-                                                <td>
-                                                    <?php if ($user['user_role'] === 'mentor'): ?>
-                                                        <small class="text-muted">
-                                                            <?php echo $user['active_mentorships']; ?> active mentorships
-                                                        </small>
-                                                    <?php else: ?>
-                                                        <small class="text-muted">
-                                                            <?php echo $user['pending_requests']; ?> pending requests
-                                                        </small>
-                                                    <?php endif; ?>
+                                                    <span class="badge bg-<?php echo $user['status'] === 'active' ? 'success' : ($user['status'] === 'suspended' ? 'danger' : 'warning'); ?> status-badge">
+                                                        <?php echo ucfirst($user['status']); ?>
+                                                    </span>
                                                 </td>
                                                 <td>
                                                     <small class="text-muted">
@@ -371,19 +421,26 @@ $pageTitle = 'User Management - Admin Dashboard';
                                                     </small>
                                                 </td>
                                                 <td>
-                                                    <div class="btn-group btn-group-sm">
-                                                        <button type="button" class="btn btn-outline-primary" 
+                                                    <div class="btn-group" role="group">
+                                                        <button type="button" class="btn btn-sm btn-outline-primary" 
                                                                 onclick="viewUser(<?php echo $user['id']; ?>)">
                                                             <i class="fas fa-eye"></i>
                                                         </button>
-                                                        <button type="button" class="btn btn-outline-warning" 
+                                                        <button type="button" class="btn btn-sm btn-outline-secondary" 
                                                                 onclick="editUser(<?php echo $user['id']; ?>)">
                                                             <i class="fas fa-edit"></i>
                                                         </button>
-                                                        <button type="button" class="btn btn-outline-danger" 
-                                                                onclick="suspendUser(<?php echo $user['id']; ?>)">
-                                                            <i class="fas fa-ban"></i>
-                                                        </button>
+                                                        <?php if ($user['status'] === 'active'): ?>
+                                                            <button type="button" class="btn btn-sm btn-outline-warning" 
+                                                                    onclick="suspendUser(<?php echo $user['id']; ?>)">
+                                                                <i class="fas fa-ban"></i>
+                                                            </button>
+                                                        <?php else: ?>
+                                                            <button type="button" class="btn btn-sm btn-outline-success" 
+                                                                    onclick="activateUser(<?php echo $user['id']; ?>)">
+                                                                <i class="fas fa-check"></i>
+                                                            </button>
+                                                        <?php endif; ?>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -396,29 +453,29 @@ $pageTitle = 'User Management - Admin Dashboard';
                 </div>
 
                 <!-- Pagination -->
-                <?php if ($totalPages > 1): ?>
-                    <nav class="mt-4">
+                <?php if ($total_pages > 1): ?>
+                    <nav aria-label="Users pagination" class="mt-4">
                         <ul class="pagination justify-content-center">
                             <?php if ($page > 1): ?>
                                 <li class="page-item">
-                                    <a class="page-link" href="?page=<?php echo $page - 1; ?>&search=<?php echo urlencode($search); ?>&role=<?php echo urlencode($role); ?>&department=<?php echo urlencode($department); ?>">
-                                        Previous
+                                    <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page - 1])); ?>">
+                                        <i class="fas fa-chevron-left"></i>
                                     </a>
                                 </li>
                             <?php endif; ?>
                             
-                            <?php for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++): ?>
+                            <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
                                 <li class="page-item <?php echo $i === $page ? 'active' : ''; ?>">
-                                    <a class="page-link" href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>&role=<?php echo urlencode($role); ?>&department=<?php echo urlencode($department); ?>">
+                                    <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $i])); ?>">
                                         <?php echo $i; ?>
                                     </a>
                                 </li>
                             <?php endfor; ?>
                             
-                            <?php if ($page < $totalPages): ?>
+                            <?php if ($page < $total_pages): ?>
                                 <li class="page-item">
-                                    <a class="page-link" href="?page=<?php echo $page + 1; ?>&search=<?php echo urlencode($search); ?>&role=<?php echo urlencode($role); ?>&department=<?php echo urlencode($department); ?>">
-                                        Next
+                                    <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page + 1])); ?>">
+                                        <i class="fas fa-chevron-right"></i>
                                     </a>
                                 </li>
                             <?php endif; ?>
@@ -435,12 +492,12 @@ $pageTitle = 'User Management - Admin Dashboard';
     <script>
         function viewUser(userId) {
             // Implement user view modal
-            alert('View user ' + userId);
+            alert('View user details for ID: ' + userId);
         }
         
         function editUser(userId) {
             // Implement user edit modal
-            alert('Edit user ' + userId);
+            alert('Edit user for ID: ' + userId);
         }
         
         function suspendUser(userId) {
@@ -449,6 +506,19 @@ $pageTitle = 'User Management - Admin Dashboard';
                 form.method = 'POST';
                 form.innerHTML = `
                     <input type="hidden" name="action" value="suspend">
+                    <input type="hidden" name="user_id" value="${userId}">
+                `;
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+        
+        function activateUser(userId) {
+            if (confirm('Are you sure you want to activate this user?')) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.innerHTML = `
+                    <input type="hidden" name="action" value="activate">
                     <input type="hidden" name="user_id" value="${userId}">
                 `;
                 document.body.appendChild(form);
