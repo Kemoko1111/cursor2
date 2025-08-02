@@ -41,8 +41,10 @@ $pageDescription = 'Connect with mentors and mentees in the ACES community';
             <a class="navbar-brand fw-bold" href="/">
                 <i class="fas fa-graduation-cap me-2"></i>Menteego
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
+            <button class="mobile-menu-toggle" type="button" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
