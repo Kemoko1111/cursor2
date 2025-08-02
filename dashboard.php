@@ -311,6 +311,12 @@ $pageTitle = 'Dashboard - Menteego';
                                                class="btn btn-sm btn-outline-primary me-2">
                                                 <i class="fas fa-comments"></i> Message
                                             </a>
+                                            <?php if ($userRole === 'mentee'): ?>
+                                                <a href="/view-mentor-availability.php?mentor_id=<?php echo $mentorship['mentor_id']; ?>" 
+                                                   class="btn btn-sm btn-outline-success">
+                                                    <i class="fas fa-calendar-alt"></i> Availability
+                                                </a>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 </div>
@@ -372,6 +378,11 @@ $pageTitle = 'Dashboard - Menteego';
                                 <a href="/requests.php" class="btn btn-outline-warning">
                                     <i class="fas fa-paper-plane me-2"></i>My Requests
                                 </a>
+                                <?php if (!empty($activeMentorships)): ?>
+                                    <a href="/view-mentor-availability.php" class="btn btn-outline-success">
+                                        <i class="fas fa-calendar-alt me-2"></i>View Mentor Availability
+                                    </a>
+                                <?php endif; ?>
                             <?php else: ?>
                                 <a href="/mentor-request.php" class="btn btn-outline-primary">
                                     <i class="fas fa-inbox me-2"></i>View Requests

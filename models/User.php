@@ -437,5 +437,36 @@ class User {
         // Clear session
         session_destroy();
     }
+
+    /**
+     * Get mentor availability
+     */
+    public function getMentorAvailability($mentorId) {
+        $query = "SELECT * FROM availability 
+                 WHERE user_id = :mentor_id AND is_available = 1 
+                 ORDER BY FIELD(day_of_week, 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday')";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':mentor_id', $mentorId);
+        $stmt->execute();
+        
+        $availability = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $availability[$row['day_of_week']] = $row;
+        }
+        
+        return $availability;
+    }
+
+    /**
+     * Get mentor with availability
+     */
+    public function getMentorWithAvailability($mentorId) {
+        $mentor = $this->getUserById($mentorId);
+        if ($mentor && $mentor['role'] === 'mentor') {
+            $mentor['availability'] = $this->getMentorAvailability($mentorId);
+        }
+        return $mentor;
+    }
 }
 ?>
