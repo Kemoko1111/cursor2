@@ -9,6 +9,9 @@ if (!isset($_SESSION['user_id'])) {
 $userId = $_SESSION['user_id'];
 $userRole = $_SESSION['user_role'];
 
+// Debug: Check current user role
+echo "<!-- Current user role: " . $userRole . " -->";
+
 // Initialize models
 $userModel = new User();
 $mentorshipModel = new Mentorship();
