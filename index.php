@@ -15,6 +15,12 @@ $pageDescription = 'Connect with mentors and mentees in the ACES community';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0d6efd">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Menteego">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/assets/images/icon-152x152.png">
     <title><?php echo $pageTitle; ?></title>
     <meta name="description" content="<?php echo $pageDescription; ?>">
     
@@ -684,5 +690,20 @@ $pageDescription = 'Connect with mentors and mentees in the ACES community';
             color: var(--primary-color) !important;
         }
     </style>
+    
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch(registrationError => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
 </body>
 </html>
