@@ -383,12 +383,19 @@ $pageTitle = 'Dashboard - Menteego';
                                         <i class="fas fa-calendar-alt me-2"></i>View Mentor Availability
                                     </a>
                                 <?php endif; ?>
-                            <?php else: ?>
+                            <?php elseif ($userRole === 'mentor'): ?>
                                 <a href="/mentor-request.php" class="btn btn-outline-primary">
                                     <i class="fas fa-inbox me-2"></i>View Requests
                                 </a>
                                 <a href="/availability.php" class="btn btn-outline-success">
                                     <i class="fas fa-calendar me-2"></i>Set Availability
+                                </a>
+                            <?php elseif ($userRole === 'admin'): ?>
+                                <a href="/admin/reports.php" class="btn btn-outline-primary">
+                                    <i class="fas fa-chart-bar me-2"></i>System Reports
+                                </a>
+                                <a href="/reports.php" class="btn btn-outline-warning">
+                                    <i class="fas fa-file-alt me-2"></i>View Reports
                                 </a>
                             <?php endif; ?>
                             <a href="/messages.php" class="btn btn-outline-info">
