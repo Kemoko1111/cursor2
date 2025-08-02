@@ -1,5 +1,6 @@
 <?php
 require_once 'config/app.php';
+require_once 'security-headers.php';
 
 // Check if user is logged in
 if (!isset($_SESSION['user_id'])) {

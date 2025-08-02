@@ -1,5 +1,6 @@
 <?php
 require_once '../config/app.php';
+require_once '../security-headers.php';
 require_once '../models/Notification.php';
 
 // Check if user is logged in
