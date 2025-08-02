@@ -280,9 +280,6 @@ $pageTitle = 'Mentor Availability - Menteego';
                                 <a href="/messages.php?mentor=<?php echo $mentorId; ?>" class="btn btn-primary">
                                     <i class="fas fa-comments me-2"></i>Send Message
                                 </a>
-                                <a href="/schedule-session.php?mentor=<?php echo $mentorId; ?>" class="btn btn-success">
-                                    <i class="fas fa-calendar-plus me-2"></i>Schedule Session
-                                </a>
                                 <a href="/dashboard.php" class="btn btn-outline-secondary">
                                     <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
                                 </a>
