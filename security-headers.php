@@ -32,6 +32,8 @@ if (isset($_SERVER['HTTP_ORIGIN'])) {
     $allowedOrigins = [
         'https://yourdomain.com',
         'https://www.yourdomain.com',
+        'https://yourusername.infinityfreeapp.com', // Replace with your actual domain
+        'https://yourusername.epizy.com', // Replace with your actual domain
         'http://localhost:3000', // For development
         'http://localhost:8080'  // For development
     ];
