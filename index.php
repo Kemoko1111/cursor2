@@ -49,6 +49,9 @@ $pageDescription = 'Connect with mentors and mentees in the ACES community';
                         <a class="nav-link" href="#testimonials">Testimonials</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" href="#stats">Statistics</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="auth/login.php">Login</a>
                     </li>
                     <li class="nav-item">
@@ -64,24 +67,48 @@ $pageDescription = 'Connect with mentors and mentees in the ACES community';
         <div class="container">
             <div class="row align-items-center min-vh-75">
                 <div class="col-lg-6">
-                    <h1 class="display-4 fw-bold mb-4 animate-on-scroll">
-                        Connect. Learn. <span class="text-warning">Grow.</span>
-                    </h1>
-                    <p class="lead mb-4 animate-on-scroll">
-                        Join <?php echo ORG_NAME; ?>'s premier mentorship platform. 
-                        Connect with experienced mentors or become a mentor yourself.
-                    </p>
-                    <div class="d-flex gap-3 flex-wrap animate-on-scroll">
-                        <a href="auth/register.php" class="btn btn-warning btn-lg px-4 shadow-hover">
-                            <i class="fas fa-user-plus me-2"></i>Get Started
-                        </a>
-                        <a href="#how-it-works" class="btn btn-outline-light btn-lg px-4 shadow-hover">
-                            <i class="fas fa-play me-2"></i>Learn More
-                        </a>
+                    <div class="hero-content">
+                        <h1 class="display-4 fw-bold mb-4">
+                            Connect. Learn. <span class="text-warning">Grow.</span>
+                        </h1>
+                        <p class="lead mb-4">
+                            Join <?php echo ORG_NAME; ?>'s premier mentorship platform. 
+                            Connect with experienced mentors or become a mentor yourself.
+                        </p>
+                        <div class="hero-stats mb-4">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <div class="stat-item">
+                                        <h3 class="text-warning fw-bold">500+</h3>
+                                        <small>Active Mentors</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="stat-item">
+                                        <h3 class="text-warning fw-bold">1200+</h3>
+                                        <small>Happy Mentees</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="stat-item">
+                                        <h3 class="text-warning fw-bold">95%</h3>
+                                        <small>Success Rate</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-3 flex-wrap">
+                            <a href="auth/register.php" class="btn btn-warning btn-lg px-4 shadow-hover">
+                                <i class="fas fa-user-plus me-2"></i>Get Started
+                            </a>
+                            <a href="#how-it-works" class="btn btn-outline-light btn-lg px-4 shadow-hover">
+                                <i class="fas fa-play me-2"></i>Learn More
+                            </a>
+                        </div>
                     </div>
                 </div>
                 <div class="col-lg-6 text-center">
-                    <div class="hero-illustration animate-on-scroll">
+                    <div class="hero-illustration">
                         <i class="fas fa-users display-1 opacity-75"></i>
                     </div>
                 </div>
@@ -139,8 +166,8 @@ $pageDescription = 'Connect with mentors and mentees in the ACES community';
         <div class="container">
             <div class="row">
                 <div class="col-lg-8 mx-auto text-center mb-5">
-                    <h2 class="display-5 fw-bold animate-on-scroll">Why Choose Menteego?</h2>
-                    <p class="lead text-muted animate-on-scroll">
+                    <h2 class="display-5 fw-bold">Why Choose Menteego?</h2>
+                    <p class="lead text-muted">
                         Our platform makes mentorship accessible, organized, and effective for everyone in the ACES community.
                     </p>
                 </div>
@@ -221,15 +248,15 @@ $pageDescription = 'Connect with mentors and mentees in the ACES community';
         <div class="container">
             <div class="row">
                 <div class="col-lg-8 mx-auto text-center mb-5">
-                    <h2 class="display-5 fw-bold animate-on-scroll">How It Works</h2>
-                    <p class="lead text-muted animate-on-scroll">
+                    <h2 class="display-5 fw-bold">How It Works</h2>
+                    <p class="lead text-muted">
                         Getting started with mentorship is simple and straightforward.
                     </p>
                 </div>
             </div>
             <div class="row g-4">
                 <div class="col-md-6 col-lg-3">
-                    <div class="step-card text-center animate-on-scroll" data-aos="fade-up" data-aos-delay="100">
+                    <div class="step-card text-center" data-aos="fade-up" data-aos-delay="100">
                         <div class="step-number">1</div>
                         <h4>Sign Up</h4>
                         <p class="text-muted">
@@ -238,7 +265,7 @@ $pageDescription = 'Connect with mentors and mentees in the ACES community';
                     </div>
                 </div>
                 <div class="col-md-6 col-lg-3">
-                    <div class="step-card text-center animate-on-scroll" data-aos="fade-up" data-aos-delay="200">
+                    <div class="step-card text-center" data-aos="fade-up" data-aos-delay="200">
                         <div class="step-number">2</div>
                         <h4>Set Preferences</h4>
                         <p class="text-muted">
@@ -247,7 +274,7 @@ $pageDescription = 'Connect with mentors and mentees in the ACES community';
                     </div>
                 </div>
                 <div class="col-md-6 col-lg-3">
-                    <div class="step-card text-center animate-on-scroll" data-aos="fade-up" data-aos-delay="300">
+                    <div class="step-card text-center" data-aos="fade-up" data-aos-delay="300">
                         <div class="step-number">3</div>
                         <h4>Connect</h4>
                         <p class="text-muted">
@@ -256,7 +283,7 @@ $pageDescription = 'Connect with mentors and mentees in the ACES community';
                     </div>
                 </div>
                 <div class="col-md-6 col-lg-3">
-                    <div class="step-card text-center animate-on-scroll" data-aos="fade-up" data-aos-delay="400">
+                    <div class="step-card text-center" data-aos="fade-up" data-aos-delay="400">
                         <div class="step-number">4</div>
                         <h4>Grow</h4>
                         <p class="text-muted">
@@ -273,15 +300,15 @@ $pageDescription = 'Connect with mentors and mentees in the ACES community';
         <div class="container">
             <div class="row">
                 <div class="col-lg-8 mx-auto text-center mb-5">
-                    <h2 class="display-5 fw-bold animate-on-scroll">What Our Users Say</h2>
-                    <p class="lead text-muted animate-on-scroll">
+                    <h2 class="display-5 fw-bold">What Our Users Say</h2>
+                    <p class="lead text-muted">
                         Hear from students and faculty who have experienced the power of mentorship.
                     </p>
                 </div>
             </div>
             <div class="row g-4">
                 <div class="col-lg-4">
-                    <div class="testimonial-card p-4 text-center shadow-hover animate-on-scroll" data-aos="fade-up" data-aos-delay="100">
+                    <div class="testimonial-card p-4 text-center shadow-hover" data-aos="fade-up" data-aos-delay="100">
                         <div class="testimonial-avatar mb-3">
                             <i class="fas fa-user-circle fa-3x text-primary"></i>
                         </div>
@@ -293,7 +320,7 @@ $pageDescription = 'Connect with mentors and mentees in the ACES community';
                     </div>
                 </div>
                 <div class="col-lg-4">
-                    <div class="testimonial-card p-4 text-center shadow-hover animate-on-scroll" data-aos="fade-up" data-aos-delay="200">
+                    <div class="testimonial-card p-4 text-center shadow-hover" data-aos="fade-up" data-aos-delay="200">
                         <div class="testimonial-avatar mb-3">
                             <i class="fas fa-user-circle fa-3x text-success"></i>
                         </div>
@@ -305,7 +332,7 @@ $pageDescription = 'Connect with mentors and mentees in the ACES community';
                     </div>
                 </div>
                 <div class="col-lg-4">
-                    <div class="testimonial-card p-4 text-center shadow-hover animate-on-scroll" data-aos="fade-up" data-aos-delay="300">
+                    <div class="testimonial-card p-4 text-center shadow-hover" data-aos="fade-up" data-aos-delay="300">
                         <div class="testimonial-avatar mb-3">
                             <i class="fas fa-user-circle fa-3x text-warning"></i>
                         </div>
@@ -325,8 +352,8 @@ $pageDescription = 'Connect with mentors and mentees in the ACES community';
         <div class="container">
             <div class="row">
                 <div class="col-lg-8 mx-auto text-center mb-5">
-                    <h2 class="display-5 fw-bold animate-on-scroll">Try It Out</h2>
-                    <p class="lead text-muted animate-on-scroll">
+                    <h2 class="display-5 fw-bold">Try It Out</h2>
+                    <p class="lead text-muted">
                         Experience how easy it is to find your perfect mentor match.
                     </p>
                 </div>
@@ -380,11 +407,11 @@ $pageDescription = 'Connect with mentors and mentees in the ACES community';
         <div class="container">
             <div class="row">
                 <div class="col-lg-8 mx-auto text-center">
-                    <h2 class="display-5 fw-bold mb-4 animate-on-scroll">Ready to Start Your Journey?</h2>
-                    <p class="lead mb-4 animate-on-scroll">
+                    <h2 class="display-5 fw-bold mb-4">Ready to Start Your Journey?</h2>
+                    <p class="lead mb-4">
                         Join hundreds of ACES students and faculty already using Menteego to accelerate their growth.
                     </p>
-                    <div class="d-flex gap-3 justify-content-center flex-wrap animate-on-scroll">
+                    <div class="d-flex gap-3 justify-content-center flex-wrap">
                         <a href="auth/register.php" class="btn btn-warning btn-lg px-5 shadow-hover">
                             <i class="fas fa-rocket me-2"></i>Join Now
                         </a>
@@ -591,15 +618,15 @@ $pageDescription = 'Connect with mentors and mentees in the ACES community';
             animation: float 6s ease-in-out infinite;
         }
 
-        .animate-on-scroll {
-            opacity: 0;
-            transform: translateY(30px);
-            transition: all 0.6s ease;
+        .hero-stats {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
         }
 
-        .animate-on-scroll.animated {
-            opacity: 1;
-            transform: translateY(0);
+        .stat-item {
+            padding: 0.5rem;
         }
 
         .testimonial-card {
