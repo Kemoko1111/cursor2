@@ -13,6 +13,7 @@ $userRole = $_SESSION['user_role'];
 $userModel = new User();
 $mentorshipModel = new Mentorship();
 $messageModel = new Message();
+$notificationModel = new Notification();
 
 // Get current user data
 $currentUser = $userModel->getUserById($userId);
@@ -36,6 +37,10 @@ if ($userRole === 'mentor') {
 
 // Get recent conversations
 $conversations = $messageModel->getConversations($userId);
+
+// Get notifications
+$unreadNotifications = $notificationModel->getUnreadNotifications($userId, 5);
+$unreadCount = $notificationModel->getUnreadCount($userId);
 
 $pageTitle = 'Dashboard - Menteego';
 ?>
@@ -91,6 +96,63 @@ $pageTitle = 'Dashboard - Menteego';
                 </ul>
                 
                 <ul class="navbar-nav">
+                    <!-- Notifications Dropdown -->
+                    <li class="nav-item dropdown me-3">
+                        <a class="nav-link dropdown-toggle position-relative" href="#" id="notificationsDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-bell"></i>
+                            <?php if ($unreadCount > 0): ?>
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                    <?php echo $unreadCount; ?>
+                                </span>
+                            <?php endif; ?>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end notification-dropdown" style="width: 350px; max-height: 400px; overflow-y: auto;">
+                            <li class="dropdown-header d-flex justify-content-between align-items-center">
+                                <span>Notifications</span>
+                                <?php if ($unreadCount > 0): ?>
+                                    <button class="btn btn-sm btn-outline-primary" id="markAllRead">
+                                        Mark all read
+                                    </button>
+                                <?php endif; ?>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <div id="notificationsList">
+                                <?php if (empty($unreadNotifications)): ?>
+                                    <li class="dropdown-item text-center text-muted py-3">
+                                        <i class="fas fa-bell-slash fa-2x mb-2"></i>
+                                        <p class="mb-0">No new notifications</p>
+                                    </li>
+                                <?php else: ?>
+                                    <?php foreach ($unreadNotifications as $notification): ?>
+                                        <li class="dropdown-item notification-item" data-notification-id="<?php echo $notification['id']; ?>">
+                                            <div class="d-flex align-items-start">
+                                                <div class="flex-shrink-0">
+                                                    <i class="<?php echo $notificationModel->getNotificationIcon($notification['type']); ?> text-<?php echo $notificationModel->getNotificationColor($notification['type']); ?>"></i>
+                                                </div>
+                                                <div class="flex-grow-1 ms-3">
+                                                    <h6 class="mb-1 fw-semibold"><?php echo htmlspecialchars($notification['title']); ?></h6>
+                                                    <p class="mb-1 text-muted small"><?php echo htmlspecialchars($notification['message']); ?></p>
+                                                    <small class="text-muted"><?php echo $notificationModel->formatTimeAgo($notification['created_at']); ?></small>
+                                                </div>
+                                                <div class="flex-shrink-0 ms-2">
+                                                    <button class="btn btn-sm btn-outline-danger delete-notification" data-notification-id="<?php echo $notification['id']; ?>">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </div>
+                            <li><hr class="dropdown-divider"></li>
+                            <li class="dropdown-item text-center">
+                                <a href="/notifications.php" class="text-decoration-none">
+                                    View all notifications
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
                             <img src="<?php echo $currentUser['profile_image'] ? 'uploads/profiles/' . $currentUser['profile_image'] : 'assets/images/default-avatar.png'; ?>" 
@@ -187,10 +249,10 @@ $pageTitle = 'Dashboard - Menteego';
             <div class="col-md-3">
                 <div class="stat-card text-center">
                     <div class="stat-number text-info">
-                        <?php echo $stats['unread_messages']; ?>
+                        <?php echo $unreadCount; ?>
                     </div>
                     <div class="fw-semibold">
-                        Unread Messages
+                        New Notifications
                     </div>
                 </div>
             </div>
@@ -248,10 +310,6 @@ $pageTitle = 'Dashboard - Menteego';
                                             <a href="/messages.php?mentorship=<?php echo $mentorship['id']; ?>" 
                                                class="btn btn-sm btn-outline-primary me-2">
                                                 <i class="fas fa-comments"></i> Message
-                                            </a>
-                                            <a href="/mentorship.php?id=<?php echo $mentorship['id']; ?>" 
-                                               class="btn btn-sm btn-outline-secondary">
-                                                <i class="fas fa-eye"></i> View
                                             </a>
                                         </div>
                                     </div>
@@ -315,7 +373,7 @@ $pageTitle = 'Dashboard - Menteego';
                                     <i class="fas fa-paper-plane me-2"></i>My Requests
                                 </a>
                             <?php else: ?>
-                                <a href="/requests.php" class="btn btn-outline-primary">
+                                <a href="/mentor-request.php" class="btn btn-outline-primary">
                                     <i class="fas fa-inbox me-2"></i>View Requests
                                 </a>
                                 <a href="/availability.php" class="btn btn-outline-success">
@@ -340,9 +398,174 @@ $pageTitle = 'Dashboard - Menteego';
     <!-- Custom JS -->
     <script src="assets/js/main.js"></script>
     
+    <!-- Notification JavaScript -->
     <script>
         // Set current user ID for JavaScript
         window.currentUserId = <?php echo $userId; ?>;
+        
+        // Notification functionality
+        class NotificationManager {
+            constructor() {
+                this.init();
+            }
+            
+            init() {
+                this.bindEvents();
+                this.startPolling();
+            }
+            
+            bindEvents() {
+                // Mark all as read
+                document.getElementById('markAllRead')?.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.markAllAsRead();
+                });
+                
+                // Mark individual notification as read
+                document.querySelectorAll('.notification-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        if (!e.target.closest('.delete-notification')) {
+                            const notificationId = item.dataset.notificationId;
+                            this.markAsRead(notificationId);
+                        }
+                    });
+                });
+                
+                // Delete notification
+                document.querySelectorAll('.delete-notification').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const notificationId = btn.dataset.notificationId;
+                        this.deleteNotification(notificationId);
+                    });
+                });
+            }
+            
+            async markAsRead(notificationId) {
+                try {
+                    const response = await fetch('/api/notifications.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'mark_read',
+                            notification_id: notificationId
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success) {
+                        // Remove the notification from the list
+                        const notificationItem = document.querySelector(`[data-notification-id="${notificationId}"]`);
+                        if (notificationItem) {
+                            notificationItem.remove();
+                        }
+                        this.updateNotificationCount();
+                    }
+                } catch (error) {
+                    console.error('Error marking notification as read:', error);
+                }
+            }
+            
+            async markAllAsRead() {
+                try {
+                    const response = await fetch('/api/notifications.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'mark_all_read'
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success) {
+                        // Clear all notifications from the list
+                        const notificationsList = document.getElementById('notificationsList');
+                        notificationsList.innerHTML = `
+                            <li class="dropdown-item text-center text-muted py-3">
+                                <i class="fas fa-bell-slash fa-2x mb-2"></i>
+                                <p class="mb-0">No new notifications</p>
+                            </li>
+                        `;
+                        this.updateNotificationCount();
+                    }
+                } catch (error) {
+                    console.error('Error marking all notifications as read:', error);
+                }
+            }
+            
+            async deleteNotification(notificationId) {
+                try {
+                    const response = await fetch('/api/notifications.php', {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            notification_id: notificationId
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success) {
+                        // Remove the notification from the list
+                        const notificationItem = document.querySelector(`[data-notification-id="${notificationId}"]`);
+                        if (notificationItem) {
+                            notificationItem.remove();
+                        }
+                        this.updateNotificationCount();
+                    }
+                } catch (error) {
+                    console.error('Error deleting notification:', error);
+                }
+            }
+            
+            async updateNotificationCount() {
+                try {
+                    const response = await fetch('/api/notifications.php?action=count');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        const badge = document.querySelector('#notificationsDropdown .badge');
+                        if (data.count > 0) {
+                            if (badge) {
+                                badge.textContent = data.count;
+                            } else {
+                                // Create badge if it doesn't exist
+                                const dropdown = document.getElementById('notificationsDropdown');
+                                const newBadge = document.createElement('span');
+                                newBadge.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger';
+                                newBadge.textContent = data.count;
+                                dropdown.appendChild(newBadge);
+                            }
+                        } else {
+                            // Remove badge if count is 0
+                            if (badge) {
+                                badge.remove();
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error updating notification count:', error);
+                }
+            }
+            
+            startPolling() {
+                // Poll for new notifications every 30 seconds
+                setInterval(() => {
+                    this.updateNotificationCount();
+                }, 30000);
+            }
+        }
+        
+        // Initialize notification manager
+        document.addEventListener('DOMContentLoaded', () => {
+            new NotificationManager();
+        });
         
         // Auto-refresh stats every 30 seconds
         setInterval(function() {
