@@ -235,7 +235,8 @@ class Notification {
             'request_accepted' => 'fas fa-check-circle',
             'request_rejected' => 'fas fa-times-circle',
             'new_message' => 'fas fa-comments',
-            'system_announcement' => 'fas fa-bullhorn'
+            'system_announcement' => 'fas fa-bullhorn',
+            'session_scheduled' => 'fas fa-calendar-check'
         ];
         
         return $icons[$type] ?? 'fas fa-bell';
@@ -250,7 +251,8 @@ class Notification {
             'request_accepted' => 'success',
             'request_rejected' => 'danger',
             'new_message' => 'info',
-            'system_announcement' => 'warning'
+            'system_announcement' => 'warning',
+            'session_scheduled' => 'success'
         ];
         
         return $colors[$type] ?? 'secondary';
