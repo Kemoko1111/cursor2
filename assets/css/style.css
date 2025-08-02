@@ -901,6 +901,9 @@ a:hover {
         padding: var(--spacing-md) !important;
         margin: var(--spacing-xs) 0;
         border-radius: var(--radius-md);
+        min-height: 44px; /* Touch-friendly */
+        display: flex;
+        align-items: center;
     }
     
     /* Hero Section */
@@ -930,6 +933,10 @@ a:hover {
     .feature-card {
         margin-bottom: var(--spacing-lg);
         padding: var(--spacing-lg);
+        min-height: 200px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
     
     .feature-icon {
@@ -949,6 +956,10 @@ a:hover {
     .stat-card {
         margin-bottom: var(--spacing-md);
         padding: var(--spacing-lg);
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
     
     .stat-number {
@@ -959,12 +970,16 @@ a:hover {
     .message-bubble {
         max-width: 90%;
         padding: var(--spacing-sm) var(--spacing-md);
+        min-height: 44px;
+        display: flex;
+        align-items: center;
     }
     
     /* Forms */
     .form-control {
         padding: var(--spacing-md);
         font-size: 16px; /* Prevents zoom on iOS */
+        min-height: 44px;
     }
     
     /* Buttons */
@@ -973,6 +988,10 @@ a:hover {
         margin-bottom: var(--spacing-sm);
         padding: var(--spacing-md) var(--spacing-lg);
         min-height: 44px; /* Touch-friendly */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--spacing-sm);
     }
     
     .btn-group .btn {
@@ -984,12 +1003,14 @@ a:hover {
     .table-modern {
         font-size: 0.875rem;
         overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
     
     .table-modern th,
     .table-modern td {
         padding: var(--spacing-sm);
         white-space: nowrap;
+        min-height: 44px;
     }
     
     /* Notifications */
@@ -998,6 +1019,8 @@ a:hover {
         max-width: none !important;
         left: 0 !important;
         right: 0 !important;
+        max-height: 60vh;
+        overflow-y: auto;
     }
     
     /* Profile Cards */
@@ -1010,6 +1033,9 @@ a:hover {
     .skill-tag {
         font-size: 0.75rem;
         padding: var(--spacing-xs) var(--spacing-sm);
+        min-height: 32px;
+        display: inline-flex;
+        align-items: center;
     }
 }
 
@@ -1112,7 +1138,7 @@ a:hover {
 }
 
 /* ===================================
-   ENHANCED INTERACTIONS
+   ENHANCED INTERACTIONS & ANIMATIONS
    =================================== */
 
 /* Card interactions */
@@ -1140,6 +1166,178 @@ a:hover {
 
 .interactive-card:active {
     transform: scale(0.98);
+}
+
+/* Enhanced button interactions */
+.btn {
+    position: relative;
+    overflow: hidden;
+    transition: all var(--transition-fast);
+}
+
+.btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left var(--transition-slow);
+}
+
+.btn:hover::before {
+    left: 100%;
+}
+
+.btn:active {
+    transform: scale(0.95);
+}
+
+/* Touch feedback for mobile */
+@media (hover: none) and (pointer: coarse) {
+    .btn:active,
+    .nav-link:active,
+    .feature-card:active,
+    .stat-card:active {
+        transform: scale(0.95);
+        transition: transform 0.1s ease;
+    }
+    
+    .btn:active::before {
+        left: 100%;
+    }
+}
+
+/* Loading states */
+.btn-loading {
+    position: relative;
+    pointer-events: none;
+}
+
+.btn-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Pulse animation for notifications */
+.notification-item {
+    animation: pulse-in 0.3s ease-out;
+}
+
+@keyframes pulse-in {
+    0% {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Slide animations for cards */
+.feature-card,
+.stat-card,
+.profile-card {
+    animation: slide-up 0.5s ease-out;
+}
+
+@keyframes slide-up {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Bounce animation for buttons */
+.btn-primary:active {
+    animation: bounce 0.3s ease;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(0.95); }
+}
+
+/* Shake animation for errors */
+.shake {
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+/* Fade in animation for content */
+.fade-in {
+    animation: fade-in 0.5s ease-out;
+}
+
+@keyframes fade-in {
+    0% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+/* Scale animation for icons */
+.feature-icon i {
+    transition: transform var(--transition-normal);
+}
+
+.feature-card:hover .feature-icon i {
+    transform: scale(1.2) rotate(5deg);
+}
+
+/* Glow effect for primary elements */
+.btn-primary:hover {
+    box-shadow: 0 0 20px rgba(37, 99, 235, 0.4);
+}
+
+.feature-card:hover {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+/* Ripple effect for buttons */
+.btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.3s, height 0.3s;
+}
+
+.btn:active::after {
+    width: 200px;
+    height: 200px;
 }
 
 /* Button interactions */
@@ -1340,7 +1538,7 @@ a:hover {
 }
 
 /* ===================================
-   MOBILE OPTIMIZATIONS
+   MOBILE OPTIMIZATIONS & INTERACTIONS
    =================================== */
 
 /* Prevent zoom on input focus (iOS) */
@@ -1360,21 +1558,233 @@ html {
     -webkit-overflow-scrolling: touch;
 }
 
-/* Optimize for mobile performance */
+/* Mobile-specific interactions */
 @media (max-width: 767px) {
+    /* Touch-friendly hover effects */
+    .feature-card:active,
+    .stat-card:active,
+    .profile-card:active {
+        transform: scale(0.98);
+        transition: transform 0.1s ease;
+    }
+    
+    /* Button press effects */
+    .btn:active {
+        transform: scale(0.95);
+        box-shadow: var(--shadow-sm);
+    }
+    
+    /* Navigation link press effects */
+    .nav-link:active {
+        background-color: var(--primary-100);
+        transform: scale(0.98);
+    }
+    
+    /* Card press effects */
+    .card:active {
+        transform: translateY(2px);
+        box-shadow: var(--shadow-sm);
+    }
+    
+    /* Form input focus effects */
+    .form-control:focus {
+        transform: scale(1.02);
+        box-shadow: 0 0 0 3px var(--primary-100);
+    }
+    
+    /* Notification press effects */
+    .notification-item:active {
+        background-color: var(--neutral-100);
+        transform: scale(0.98);
+    }
+    
+    /* Skill tag press effects */
+    .skill-tag:active {
+        transform: scale(0.95);
+        background-color: var(--primary-100);
+    }
+    
+    /* Message bubble press effects */
+    .message-bubble:active {
+        transform: scale(0.98);
+    }
+    
+    /* Optimize for mobile performance */
     .feature-card,
     .stat-card,
     .profile-card {
         will-change: transform;
     }
-    
-    /* Reduce animations on mobile for better performance */
-    .feature-card:hover {
-        transform: none;
+}
+
+/* Mobile gesture feedback */
+@media (hover: none) and (pointer: coarse) {
+    /* Long press feedback */
+    .btn:active,
+    .nav-link:active,
+    .feature-card:active {
+        animation: press-feedback 0.2s ease;
     }
     
-    .btn:hover {
-        transform: none;
+    @keyframes press-feedback {
+        0% { transform: scale(1); }
+        50% { transform: scale(0.95); }
+        100% { transform: scale(1); }
+    }
+    
+    /* Swipe gesture feedback */
+    .swipeable {
+        touch-action: pan-y;
+        user-select: none;
+    }
+    
+    /* Pull to refresh indicator */
+    .pull-to-refresh {
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--neutral-500);
+        font-size: 0.875rem;
+        background: var(--neutral-50);
+        border-bottom: 1px solid var(--neutral-200);
+    }
+}
+
+/* Mobile-specific animations */
+@media (max-width: 767px) {
+    /* Slide in from bottom for mobile */
+    .mobile-enter {
+        animation: slide-in-bottom 0.3s ease-out;
+    }
+    
+    @keyframes slide-in-bottom {
+        0% {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Scale in for mobile cards */
+    .mobile-scale-enter {
+        animation: scale-in 0.3s ease-out;
+    }
+    
+    @keyframes scale-in {
+        0% {
+            opacity: 0;
+            transform: scale(0.9);
+        }
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+    
+    /* Bounce for mobile buttons */
+    .btn:active {
+        animation: mobile-bounce 0.2s ease;
+    }
+    
+    @keyframes mobile-bounce {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(0.95); }
+    }
+}
+
+/* Mobile navigation enhancements */
+@media (max-width: 767px) {
+    /* Full-screen mobile menu */
+    .navbar-collapse {
+        position: fixed;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.95);
+        backdrop-filter: blur(10px);
+        transition: left 0.3s ease;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .navbar-collapse.show {
+        left: 0;
+    }
+    
+    /* Mobile menu items */
+    .navbar-nav {
+        flex-direction: column;
+        text-align: center;
+        width: 100%;
+    }
+    
+    .navbar-nav .nav-link {
+        font-size: 1.25rem;
+        padding: var(--spacing-lg) !important;
+        margin: var(--spacing-sm) 0;
+        color: white !important;
+        border-radius: var(--radius-lg);
+        transition: all var(--transition-fast);
+    }
+    
+    .navbar-nav .nav-link:active {
+        background: rgba(255, 255, 255, 0.1);
+        transform: scale(0.98);
+    }
+}
+
+/* Mobile bottom navigation */
+@media (max-width: 767px) {
+    .mobile-bottom-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        border-top: 1px solid var(--neutral-200);
+        padding: var(--spacing-sm);
+        z-index: 1000;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    }
+    
+    .mobile-bottom-nav .nav-item {
+        flex: 1;
+        text-align: center;
+    }
+    
+    .mobile-bottom-nav .nav-link {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: var(--spacing-sm);
+        color: var(--neutral-600);
+        font-size: 0.75rem;
+        transition: all var(--transition-fast);
+    }
+    
+    .mobile-bottom-nav .nav-link.active {
+        color: var(--primary-600);
+    }
+    
+    .mobile-bottom-nav .nav-link:active {
+        transform: scale(0.9);
+    }
+    
+    .mobile-bottom-nav .nav-link i {
+        font-size: 1.25rem;
+        margin-bottom: var(--spacing-xs);
+    }
+    
+    body {
+        padding-bottom: 80px;
     }
 }
 
