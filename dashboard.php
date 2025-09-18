@@ -3,7 +3,7 @@ require_once 'config/app.php';
 
 // Check if user is logged in
 if (!isset($_SESSION['user_id'])) {
-    redirect('auth/login.php');
+    redirect('/auth/login.php');
 }
 
 $userId = $_SESSION['user_id'];
@@ -18,7 +18,7 @@ $messageModel = new Message();
 $currentUser = $userModel->getUserById($userId);
 if (!$currentUser) {
     session_destroy();
-    redirect('auth/login.php');
+    redirect('/auth/login.php');
 }
 
 // Get user statistics
@@ -37,7 +37,7 @@ if ($userRole === 'mentor') {
 // Get recent conversations
 $conversations = $messageModel->getConversations($userId);
 
-$pageTitle = 'Dashboard - AutoCare';
+$pageTitle = 'Dashboard - Menteego';
 ?>
 
 <!DOCTYPE html>
@@ -58,8 +58,8 @@ $pageTitle = 'Dashboard - AutoCare';
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="dashboard.php">
-                <i class="fas fa-graduation-cap me-2"></i>AutoCare
+            <a class="navbar-brand fw-bold" href="/dashboard.php">
+                <i class="fas fa-graduation-cap me-2"></i>Menteego
             </a>
             
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -69,17 +69,17 @@ $pageTitle = 'Dashboard - AutoCare';
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link active" href="dashboard.php">
+                        <a class="nav-link active" href="/dashboard.php">
                             <i class="fas fa-tachometer-alt me-1"></i>Dashboard
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="browse-mentors.php">
+                        <a class="nav-link" href="/browse-mentors.php">
                             <i class="fas fa-search me-1"></i>Find Mentors
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link position-relative" href="messages.php">
+                        <a class="nav-link position-relative" href="/messages.php">
                             <i class="fas fa-comments me-1"></i>Messages
                             <?php if ($stats['unread_messages'] > 0): ?>
                                 <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
@@ -98,14 +98,14 @@ $pageTitle = 'Dashboard - AutoCare';
                             <?php echo htmlspecialchars($currentUser['first_name']); ?>
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="profile.php">
+                            <li><a class="dropdown-item" href="/profile.php">
                                 <i class="fas fa-user me-2"></i>Profile
                             </a></li>
-                            <li><a class="dropdown-item" href="settings.php">
+                            <li><a class="dropdown-item" href="/settings.php">
                                 <i class="fas fa-cog me-2"></i>Settings
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="auth/logout.php">
+                            <li><a class="dropdown-item" href="/auth/logout.php">
                                 <i class="fas fa-sign-out-alt me-2"></i>Logout
                             </a></li>
                         </ul>
@@ -134,11 +134,11 @@ $pageTitle = 'Dashboard - AutoCare';
                 <div class="col-md-4 text-md-end">
                     <div class="d-flex gap-2 justify-content-md-end">
                         <?php if ($userRole === 'mentee'): ?>
-                            <a href="browse-mentors.php" class="btn btn-warning">
+                            <a href="/browse-mentors.php" class="btn btn-warning">
                                 <i class="fas fa-search me-2"></i>Find Mentors
                             </a>
                         <?php endif; ?>
-                        <a href="profile.php" class="btn btn-outline-light">
+                        <a href="/profile.php" class="btn btn-outline-light">
                             <i class="fas fa-user me-2"></i>Profile
                         </a>
                     </div>
@@ -245,7 +245,7 @@ $pageTitle = 'Dashboard - AutoCare';
                                             </span>
                                         <?php endif; ?>
                                         <div>
-                                            <a href="messages.php?mentorship=<?php echo $mentorship['id']; ?>" 
+                                            <a href="/messages.php?mentorship=<?php echo $mentorship['id']; ?>" 
                                                class="btn btn-sm btn-outline-primary me-2">
                                                 <i class="fas fa-comments"></i> Message
                                             </a>
