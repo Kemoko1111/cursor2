@@ -3,7 +3,7 @@ require_once '../config/app.php';
 
 // Check if user is already logged in
 if (isset($_SESSION['user_id'])) {
-    redirect('/dashboard.php');
+    redirect('../dashboard.php');
 }
 
 $error = '';
@@ -20,14 +20,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = $userModel->login($email, $password);
         
         if ($result['success']) {
-            redirect('/dashboard.php');
+            redirect('../dashboard.php');
         } else {
             $error = $result['message'];
         }
     }
 }
 
-$pageTitle = 'Login - Menteego';
+$pageTitle = 'Login - AutoCare';
 ?>
 
 <!DOCTYPE html>
@@ -53,7 +53,7 @@ $pageTitle = 'Login - Menteego';
                     <i class="fas fa-graduation-cap me-2"></i>
                     Welcome Back
                 </h2>
-                <p class="mb-0 opacity-75">Sign in to your Menteego account</p>
+                <p class="mb-0 opacity-75">Sign in to your AutoCare account</p>
             </div>
             
             <!-- Body -->

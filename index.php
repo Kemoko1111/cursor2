@@ -3,10 +3,10 @@ require_once 'config/app.php';
 
 // Check if user is logged in
 if (isset($_SESSION['user_id'])) {
-    redirect('/dashboard.php');
+    redirect('dashboard.php');
 }
 
-$pageTitle = 'Welcome to Menteego';
+$pageTitle = 'Welcome to AutoCare';
 $pageDescription = 'Connect with mentors and mentees in the ACES community';
 ?>
 
@@ -30,7 +30,7 @@ $pageDescription = 'Connect with mentors and mentees in the ACES community';
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
             <a class="navbar-brand fw-bold" href="/">
-                <i class="fas fa-graduation-cap me-2"></i>Menteego
+                <i class="fas fa-graduation-cap me-2"></i>AutoCare
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -89,7 +89,7 @@ $pageDescription = 'Connect with mentors and mentees in the ACES community';
         <div class="container">
             <div class="row">
                 <div class="col-lg-8 mx-auto text-center mb-5">
-                    <h2 class="display-5 fw-bold">Why Choose Menteego?</h2>
+                    <h2 class="display-5 fw-bold">Why Choose AutoCare?</h2>
                     <p class="lead text-muted">
                         Our platform makes mentorship accessible, organized, and effective for everyone in the ACES community.
                     </p>
@@ -240,7 +240,7 @@ $pageDescription = 'Connect with mentors and mentees in the ACES community';
         <div class="container">
             <div class="row">
                 <div class="col-md-6">
-                    <h5><i class="fas fa-graduation-cap me-2"></i>Menteego</h5>
+                    <h5><i class="fas fa-graduation-cap me-2"></i>AutoCare</h5>
                     <p class="text-muted">Empowering the ACES community through mentorship.</p>
                 </div>
                 <div class="col-md-6 text-md-end">
