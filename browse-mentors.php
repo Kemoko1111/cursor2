@@ -14,7 +14,7 @@ if ($userRole !== 'mentee') {
 
 // Initialize models
 $userModel = new User();
-$mentorshipModel = new Mentorship();
+// Remove: $mentorshipModel = new Mentorship();
 
 // Get current user data
 $currentUser = $userModel->getUserById($userId);
@@ -25,7 +25,61 @@ $yearOfStudy = $_GET['year_of_study'] ?? '';
 $search = $_GET['search'] ?? '';
 
 // Get available mentors
-$mentors = $userModel->getAvailableMentors($userId, [
+function getAllMentors($menteeId, $filters = []) {
+    try {
+        $database = new Database();
+        $conn = $database->getConnection();
+        
+        $params = [];
+        $where = [
+            "u.role = 'mentor'"
+            // No status or email_verified filter
+        ];
+
+        if (!empty($filters['department'])) {
+            $where[] = 'u.department = :department';
+            $params[':department'] = $filters['department'];
+        }
+        if (!empty($filters['year_of_study'])) {
+            $where[] = 'u.year_of_study = :year_of_study';
+            $params[':year_of_study'] = $filters['year_of_study'];
+        }
+        if (!empty($filters['search'])) {
+            $where[] = '(u.first_name LIKE :search OR u.last_name LIKE :search OR u.bio LIKE :search)';
+            $params[':search'] = '%' . $filters['search'] . '%';
+        }
+
+        $query = "SELECT u.*, 
+                                 (SELECT AVG(r.rating) FROM reviews r WHERE r.mentor_id = u.id) as rating,
+                                 (SELECT COUNT(*) FROM reviews r WHERE r.mentor_id = u.id) as review_count
+                          FROM users u
+                          WHERE " . implode(' AND ', $where) . "
+                          ORDER BY u.created_at DESC";
+        $stmt = $conn->prepare($query);
+        foreach ($params as $key => $val) {
+            $stmt->bindValue($key, $val);
+        }
+        $stmt->execute();
+        $mentors = $stmt->fetchAll();
+
+        // For each mentor, check if the mentee already has an active mentorship with them
+        foreach ($mentors as &$mentor) {
+            $mentor['has_active_mentorship'] = false;
+            $checkQuery = "SELECT COUNT(*) FROM mentorships WHERE mentor_id = :mentor_id AND mentee_id = :mentee_id AND status = 'active'";
+            $checkStmt = $conn->prepare($checkQuery);
+            $checkStmt->bindValue(':mentor_id', $mentor['id']);
+            $checkStmt->bindValue(':mentee_id', $menteeId);
+            $checkStmt->execute();
+            $mentor['has_active_mentorship'] = $checkStmt->fetchColumn() > 0;
+        }
+        return $mentors;
+    } catch (Exception $e) {
+        error_log("Error getting all mentors: " . $e->getMessage());
+        return [];
+    }
+}
+
+$mentors = getAllMentors($userId, [
     'department' => $department,
     'year_of_study' => $yearOfStudy,
     'search' => $search
@@ -166,77 +220,129 @@ $pageTitle = 'Browse Mentors - Menteego';
             </div>
         </div>
 
-        <!-- Results -->
+        <!-- Mentors Grid -->
         <div class="row">
             <?php if (empty($mentors)): ?>
                 <div class="col-12">
                     <div class="text-center py-5">
-                        <i class="fas fa-user-friends fa-3x text-muted mb-3"></i>
-                        <h5 class="text-muted">No mentors found</h5>
-                        <p class="text-muted">Try adjusting your search criteria or check back later.</p>
+                        <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">No mentors found</h4>
+                        <p class="text-muted">Try adjusting your filters or check back later for new mentors.</p>
+                        <a href="?department=&year_of_study=&search=" class="btn btn-outline-primary">
+                            <i class="fas fa-times me-1"></i>Clear Filters
+                        </a>
                     </div>
                 </div>
             <?php else: ?>
                 <?php foreach ($mentors as $mentor): ?>
-                    <div class="col-md-6 col-lg-4 mb-4">
-                        <div class="card h-100 shadow-sm mentor-card">
+                    <div class="col-lg-4 col-md-6 mb-4">
+                        <div class="card h-100 profile-card shadow-hover">
                             <div class="card-body">
                                 <div class="d-flex align-items-center mb-3">
-                                    <img src="<?php echo $mentor['profile_image'] ? 'uploads/profiles/' . $mentor['profile_image'] : 'assets/images/default-avatar.png'; ?>" 
-                                         class="rounded-circle me-3" width="60" height="60" alt="">
-                                    <div>
-                                        <h6 class="card-title mb-1 fw-bold">
-                                            <?php echo htmlspecialchars($mentor['first_name'] . ' ' . $mentor['last_name']); ?>
-                                        </h6>
-                                        <p class="text-muted mb-0">
-                                            <?php echo htmlspecialchars($mentor['department']); ?>
-                                        </p>
-                                        <small class="text-muted">
-                                            <?php echo ucfirst($mentor['year_of_study']); ?> Year
-                                        </small>
-                                    </div>
-                                </div>
-                                
-                                <?php if (!empty($mentor['bio'])): ?>
-                                    <p class="text-muted mb-3">
-                                        <?php echo htmlspecialchars(substr($mentor['bio'], 0, 100)); ?>
-                                        <?php if (strlen($mentor['bio']) > 100): ?>...<?php endif; ?>
-                                    </p>
-                                <?php endif; ?>
-                                
-                                <?php if (!empty($mentor['skills'])): ?>
-                                    <div class="mb-3">
-                                        <?php 
-                                        $skills = explode(',', $mentor['skills']);
-                                        foreach (array_slice($skills, 0, 3) as $skill): 
-                                        ?>
-                                            <span class="badge bg-light text-dark me-1">
-                                                <?php echo htmlspecialchars(trim($skill)); ?>
-                                            </span>
-                                        <?php endforeach; ?>
-                                        <?php if (count($skills) > 3): ?>
-                                            <span class="badge bg-secondary">+<?php echo count($skills) - 3; ?> more</span>
+                                    <div class="flex-shrink-0">
+                                        <?php if ($mentor['profile_image']): ?>
+                                            <img src="<?php echo htmlspecialchars($mentor['profile_image']); ?>" 
+                                                 class="rounded-circle" width="60" height="60" alt="Profile">
+                                        <?php else: ?>
+                                            <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" 
+                                                 style="width: 60px; height: 60px;">
+                                                <i class="fas fa-user text-white fa-lg"></i>
+                                            </div>
                                         <?php endif; ?>
                                     </div>
-                                <?php endif; ?>
-                                
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <small class="text-muted">
-                                        <i class="fas fa-star text-warning"></i>
-                                        <?php echo number_format($mentor['rating'] ?? 0, 1); ?> 
-                                        (<?php echo $mentor['review_count'] ?? 0; ?> reviews)
-                                    </small>
-                                    
-                                    <div>
-                                        <a href="/profile.php?id=<?php echo $mentor['id']; ?>" 
-                                           class="btn btn-sm btn-outline-primary me-2">
-                                            <i class="fas fa-eye"></i> View
-                                        </a>
-                                        <button class="btn btn-sm btn-primary request-mentor-btn" 
-                                                data-mentor-id="<?php echo $mentor['id']; ?>">
-                                            <i class="fas fa-paper-plane"></i> Request
-                                        </button>
+                                    <div class="flex-grow-1 ms-3">
+                                        <h5 class="card-title mb-1">
+                                            <?php echo htmlspecialchars($mentor['first_name'] . ' ' . $mentor['last_name']); ?>
+                                        </h5>
+                                        <p class="text-muted mb-1">
+                                            <i class="fas fa-graduation-cap me-1"></i>
+                                            <?php echo htmlspecialchars($mentor['department']); ?>
+                                        </p>
+                                        <p class="text-muted mb-0">
+                                            <i class="fas fa-calendar me-1"></i>
+                                            Year <?php echo htmlspecialchars($mentor['year_of_study']); ?>
+                                        </p>
                                     </div>
+                                </div>
+
+                                <?php if ($mentor['bio']): ?>
+                                    <p class="card-text text-truncate-2 mb-3">
+                                        <?php echo htmlspecialchars($mentor['bio']); ?>
+                                    </p>
+                                <?php endif; ?>
+
+                                <!-- Current Mentees -->
+                                <?php if ($mentor['active_mentees'] > 0): ?>
+                                    <div class="mb-3">
+                                        <span class="badge bg-info">
+                                            <i class="fas fa-users me-1"></i>
+                                            Currently mentoring <?php echo $mentor['active_mentees']; ?> student<?php echo $mentor['active_mentees'] !== 1 ? 's' : ''; ?>
+                                        </span>
+                                    </div>
+                                <?php endif; ?>
+
+                                <!-- Skills -->
+                                <?php
+                                // Get mentor skills
+                                $mentorSkills = [];
+                                try {
+                                    $database = new Database();
+                                    $conn = $database->getConnection();
+                                    $skillsQuery = "SELECT s.name, us.proficiency_level 
+                                                   FROM user_skills us 
+                                                   JOIN skills s ON us.skill_id = s.id 
+                                                   WHERE us.user_id = :user_id AND us.is_teaching_skill = 1 
+                                                   ORDER BY us.proficiency_level DESC 
+                                                   LIMIT 5";
+                                    $skillsStmt = $conn->prepare($skillsQuery);
+                                    $skillsStmt->bindParam(':user_id', $mentor['id']);
+                                    $skillsStmt->execute();
+                                    $mentorSkills = $skillsStmt->fetchAll();
+                                } catch (Exception $e) {
+                                    // Silently handle error
+                                }
+                                ?>
+                                
+                                <?php if (!empty($mentorSkills)): ?>
+                                    <div class="mb-3">
+                                        <small class="text-muted d-block mb-2">
+                                            <i class="fas fa-tools me-1"></i>Skills:
+                                        </small>
+                                        <?php foreach ($mentorSkills as $skill): ?>
+                                            <span class="skill-tag skill-<?php echo htmlspecialchars($skill['proficiency_level']); ?>">
+                                                <?php echo htmlspecialchars($skill['name']); ?>
+                                            </span>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
+
+                                <!-- Rating -->
+                                <?php if ($mentor['rating']): ?>
+                                    <div class="mb-3">
+                                        <div class="d-flex align-items-center">
+                                            <div class="text-warning me-2">
+                                                <?php for ($i = 1; $i <= 5; $i++): ?>
+                                                    <i class="fas fa-star<?php echo ($i <= $mentor['rating']) ? '' : '-o'; ?>"></i>
+                                                <?php endfor; ?>
+                                            </div>
+                                            <small class="text-muted">
+                                                <?php echo number_format($mentor['rating'], 1); ?> 
+                                                (<?php echo $mentor['review_count']; ?> reviews)
+                                            </small>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+
+                                <div class="d-grid">
+                                    <?php if ($mentor['has_active_mentorship']): ?>
+                                        <button class="btn btn-secondary" disabled>
+                                            <i class="fas fa-user-times me-1"></i>Already Your Mentor
+                                        </button>
+                                    <?php else: ?>
+                                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#requestModal" data-mentor-id="<?php echo $mentor['id']; ?>">
+                                            <i class="fas fa-paper-plane me-1"></i>Request Mentorship
+                                        </button>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
@@ -244,6 +350,125 @@ $pageTitle = 'Browse Mentors - Menteego';
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
+
+        <?php
+        // --- Get all mentors in the system (regardless of current mentorship status) ---
+        function getAllMentors($filters = []) {
+            try {
+                $database = new Database();
+                $conn = $database->getConnection();
+                
+                $params = [];
+                $where = [
+                    "u.role = 'mentor'",
+                    "u.status = 'active'",
+                    "u.email_verified = 1"
+                ];
+
+                if (!empty($filters['department'])) {
+                    $where[] = 'u.department = :department';
+                    $params[':department'] = $filters['department'];
+                }
+                if (!empty($filters['year_of_study'])) {
+                    $where[] = 'u.year_of_study = :year_of_study';
+                    $params[':year_of_study'] = $filters['year_of_study'];
+                }
+                if (!empty($filters['search'])) {
+                    $where[] = '(u.first_name LIKE :search OR u.last_name LIKE :search OR u.bio LIKE :search)';
+                    $params[':search'] = '%' . $filters['search'] . '%';
+                }
+
+                $query = "SELECT u.*, 
+                                 (SELECT AVG(r.rating) FROM reviews r WHERE r.mentor_id = u.id) as rating,
+                                 (SELECT COUNT(*) FROM reviews r WHERE r.mentor_id = u.id) as review_count,
+                                 (SELECT COUNT(*) FROM mentorships m WHERE m.mentor_id = u.id AND m.status = 'active') as active_mentees
+                          FROM users u
+                          WHERE " . implode(' AND ', $where) . "
+                          ORDER BY u.created_at DESC";
+                $stmt = $conn->prepare($query);
+                foreach ($params as $key => $val) {
+                    $stmt->bindValue($key, $val);
+                }
+                $stmt->execute();
+                return $stmt->fetchAll();
+            } catch (Exception $e) {
+                error_log("Error getting all mentors: " . $e->getMessage());
+                return [];
+            }
+        }
+
+        $allMentors = getAllMentors([
+            'department' => $department,
+            'year_of_study' => $yearOfStudy,
+            'search' => $search
+        ]);
+        ?>
+
+        <?php if (!empty($allMentors)): ?>
+            <div class="row mt-5">
+                <div class="col-12">
+                    <h3 class="h4 mb-4">
+                        <i class="fas fa-users me-2"></i>All Mentors in the System
+                    </h3>
+                    <p class="text-muted mb-4">Browse all available mentors in the system. Some may already be mentoring other students.</p>
+                </div>
+            </div>
+            <div class="row">
+                <?php foreach ($allMentors as $mentor): ?>
+                    <div class="col-lg-4 col-md-6 mb-4">
+                        <div class="card h-100 profile-card shadow-hover">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="flex-shrink-0">
+                                        <?php if ($mentor['profile_image']): ?>
+                                            <img src="<?php echo htmlspecialchars($mentor['profile_image']); ?>" 
+                                                 class="rounded-circle" width="60" height="60" alt="Profile">
+                                        <?php else: ?>
+                                            <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" 
+                                                 style="width: 60px; height: 60px;">
+                                                <i class="fas fa-user text-white fa-lg"></i>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="flex-grow-1 ms-3">
+                                        <h5 class="card-title mb-1">
+                                            <?php echo htmlspecialchars($mentor['first_name'] . ' ' . $mentor['last_name']); ?>
+                                        </h5>
+                                        <p class="text-muted mb-1">
+                                            <i class="fas fa-graduation-cap me-1"></i>
+                                            <?php echo htmlspecialchars($mentor['department']); ?>
+                                        </p>
+                                        <p class="text-muted mb-0">
+                                            <i class="fas fa-calendar me-1"></i>
+                                            Year <?php echo htmlspecialchars($mentor['year_of_study']); ?>
+                                        </p>
+                                    </div>
+                                </div>
+                                <?php if ($mentor['bio']): ?>
+                                    <p class="card-text text-truncate-2 mb-3">
+                                        <?php echo htmlspecialchars($mentor['bio']); ?>
+                                    </p>
+                                <?php endif; ?>
+                                <?php if ($mentor['active_mentees'] > 0): ?>
+                                    <div class="mb-3">
+                                        <span class="badge bg-info">
+                                            <i class="fas fa-users me-1"></i>
+                                            Currently mentoring <?php echo $mentor['active_mentees']; ?> student<?php echo $mentor['active_mentees'] !== 1 ? 's' : ''; ?>
+                                        </span>
+                                    </div>
+                                <?php endif; ?>
+                                <div class="d-grid">
+                                    <button class="btn btn-primary request-mentor-btn" 
+                                            data-mentor-id="<?php echo $mentor['id']; ?>">
+                                        <i class="fas fa-paper-plane me-1"></i>Request Mentorship
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
     </div>
 
     <!-- Request Modal -->
@@ -259,13 +484,26 @@ $pageTitle = 'Browse Mentors - Menteego';
                         <input type="hidden" id="mentorId" name="mentor_id">
                         <div class="mb-3">
                             <label for="message" class="form-label">Personal Message</label>
-                            <textarea class="form-control" id="message" name="message" rows="4" 
+                            <textarea class="form-control" id="message" name="message" rows="4" required
                                       placeholder="Tell the mentor why you'd like their guidance and what you hope to achieve..."></textarea>
                         </div>
                         <div class="mb-3">
                             <label for="goals" class="form-label">Learning Goals</label>
-                            <textarea class="form-control" id="goals" name="goals" rows="3" 
+                            <textarea class="form-control" id="goals" name="goals" rows="3" required
                                       placeholder="What specific skills or areas would you like to improve?"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="meeting_type" class="form-label">Preferred Meeting Type</label>
+                            <select class="form-select" id="meeting_type" name="meeting_type" required>
+                                <option value="online">Online</option>
+                                <option value="in_person">In Person</option>
+                                <option value="hybrid">Hybrid</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="duration_weeks" class="form-label">Duration (weeks)</label>
+                            <input type="number" class="form-control" id="duration_weeks" name="duration_weeks" 
+                                   min="1" max="52" value="12" required>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -286,18 +524,23 @@ $pageTitle = 'Browse Mentors - Menteego';
         // Handle mentor request
         document.querySelectorAll('.request-mentor-btn').forEach(btn => {
             btn.addEventListener('click', function() {
+                document.getElementById('requestForm').reset(); // Reset form fields
                 const mentorId = this.dataset.mentorId;
                 document.getElementById('mentorId').value = mentorId;
                 new bootstrap.Modal(document.getElementById('requestModal')).show();
             });
         });
 
-        // Handle form submission
+        // Handle form submission with client-side validation
         document.getElementById('requestForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            
+            const message = document.getElementById('message').value.trim();
+            const goals = document.getElementById('goals').value.trim();
+            if (!message || !goals) {
+                alert('Please fill in both the personal message and your learning goals.');
+                return;
+            }
             const formData = new FormData(this);
-            
             fetch('/api/mentorship-request.php', {
                 method: 'POST',
                 body: formData
@@ -309,7 +552,7 @@ $pageTitle = 'Browse Mentors - Menteego';
                     bootstrap.Modal.getInstance(document.getElementById('requestModal')).hide();
                     location.reload();
                 } else {
-                    alert('Error: ' + data.message);
+                    alert('Error: ' + data.message); // Show the real backend error message
                 }
             })
             .catch(error => {

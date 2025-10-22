@@ -1,26 +1,147 @@
 <?php
 require_once 'config/app.php';
-require_once __DIR__ . '/middleware/auth.php';
 
-if (!isset($_SESSION['user_id'])) redirect('/auth/login.php');
+// Start session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+if (!isset($_SESSION['user_id'])) {
+    header('Location: /auth/login.php');
+    exit();
+}
 
 $userId = $_SESSION['user_id'];
 $userRole = $_SESSION['user_role'];
 
-// Initialize models
-$userModel = new User();
-$messageModel = new Message();
-$mentorshipModel = new Mentorship();
+// Database configuration
+$db_host = 'sql103.infinityfree.com';
+$db_name = 'if0_39537447_menteego_db';
+$db_user = 'if0_39537447';
+$db_pass = 'AeFe44u4EAs';
 
 // Get current user data
-$currentUser = $userModel->getUserById($userId);
+function getCurrentUser($userId) {
+    global $db_host, $db_name, $db_user, $db_pass;
+    try {
+        $pdo = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error getting current user: " . $e->getMessage());
+        return null;
+    }
+}
+
+// Get conversations for user
+function getConversations($userId) {
+    global $db_host, $db_name, $db_user, $db_pass;
+    try {
+        $pdo = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        // Get mentorship conversations
+        $query = "SELECT DISTINCT m.id as mentorship_id, m.mentor_id, m.mentee_id, m.status,
+                         u.id as user_id, u.first_name, u.last_name, u.profile_image, u.department,
+                         (SELECT COUNT(*) FROM messages WHERE mentorship_id = m.id AND receiver_id = ? AND is_read = 0) as unread_count,
+                         (SELECT message FROM messages WHERE mentorship_id = m.id ORDER BY created_at DESC LIMIT 1) as last_message,
+                         (SELECT created_at FROM messages WHERE mentorship_id = m.id ORDER BY created_at DESC LIMIT 1) as last_message_time
+                  FROM mentorships m
+                  JOIN users u ON (m.mentor_id = ? AND u.id = m.mentee_id) OR (m.mentee_id = ? AND u.id = m.mentor_id)
+                  WHERE (m.mentor_id = ? OR m.mentee_id = ?) AND m.status = 'active'
+                  ORDER BY last_message_time DESC";
+        
+        $stmt = $pdo->prepare($query);
+        $stmt->execute([$userId, $userId, $userId, $userId, $userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error getting conversations: " . $e->getMessage());
+        return [];
+    }
+}
+
+// Get messages for mentorship
+function getMentorshipMessages($mentorshipId, $userId) {
+    global $db_host, $db_name, $db_user, $db_pass;
+    try {
+        $pdo = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        $query = "SELECT m.*, u.first_name, u.last_name, u.profile_image
+                  FROM messages m
+                  JOIN users u ON m.sender_id = u.id
+                  WHERE m.mentorship_id = ?
+                  ORDER BY m.created_at ASC";
+        
+        $stmt = $pdo->prepare($query);
+        $stmt->execute([$mentorshipId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error getting mentorship messages: " . $e->getMessage());
+        return [];
+    }
+}
+
+// Mark messages as read
+function markMessagesAsRead($mentorshipId, $userId) {
+    global $db_host, $db_name, $db_user, $db_pass;
+    try {
+        $pdo = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        $query = "UPDATE messages SET is_read = 1 WHERE mentorship_id = ? AND receiver_id = ? AND is_read = 0";
+        $stmt = $pdo->prepare($query);
+        return $stmt->execute([$mentorshipId, $userId]);
+    } catch (Exception $e) {
+        error_log("Error marking messages as read: " . $e->getMessage());
+        return false;
+    }
+}
+
+// Get mentorship by ID
+function getMentorshipById($mentorshipId, $userId) {
+    global $db_host, $db_name, $db_user, $db_pass;
+    try {
+        $pdo = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        $query = "SELECT * FROM mentorships WHERE id = ? AND (mentor_id = ? OR mentee_id = ?)";
+        $stmt = $pdo->prepare($query);
+        $stmt->execute([$mentorshipId, $userId, $userId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error getting mentorship: " . $e->getMessage());
+        return null;
+    }
+}
+
+// Get user by ID
+function getUserById($userId) {
+    global $db_host, $db_name, $db_user, $db_pass;
+    try {
+        $pdo = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error getting user: " . $e->getMessage());
+        return null;
+    }
+}
+
+// Get current user data
+$currentUser = getCurrentUser($userId);
 
 // Get selected conversation
 $selectedMentorshipId = $_GET['mentorship'] ?? null;
-$selectedUserId = $_GET['user'] ?? null;
 
 // Get all conversations for the user
-$conversations = $messageModel->getConversations($userId);
+$conversations = getConversations($userId);
 
 // Get messages for selected conversation
 $messages = [];
@@ -28,46 +149,13 @@ $otherUser = null;
 $mentorship = null;
 
 if ($selectedMentorshipId) {
-    $mentorship = $mentorshipModel->getMentorshipById($selectedMentorshipId);
-    if ($mentorship && ($mentorship['mentor_id'] == $userId || $mentorship['mentee_id'] == $userId)) {
-        $messages = $messageModel->getMentorshipMessages($selectedMentorshipId);
+    $mentorship = getMentorshipById($selectedMentorshipId, $userId);
+    if ($mentorship) {
+        $messages = getMentorshipMessages($selectedMentorshipId, $userId);
         $otherUserId = $mentorship['mentor_id'] == $userId ? $mentorship['mentee_id'] : $mentorship['mentor_id'];
-        $otherUser = $userModel->getUserById($otherUserId);
+        $otherUser = getUserById($otherUserId);
         // Mark messages as read
-        $messageModel->markMentorshipMessagesAsRead($selectedMentorshipId, $userId);
-    }
-} elseif ($selectedUserId) {
-    $otherUser = $userModel->getUserById($selectedUserId);
-    if ($otherUser) {
-        $messages = $messageModel->getDirectMessages($userId, $selectedUserId);
-        // Mark messages as read
-        $messageModel->markDirectMessagesAsRead($userId, $selectedUserId);
-    }
-}
-
-// Handle sending new message
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['message_content'])) {
-    $messageContent = trim($_POST['message_content']);
-    $mentorshipId = $_POST['mentorship_id'] ?? null;
-    $receiverId = $_POST['receiver_id'] ?? null;
-    
-    if (!empty($messageContent)) {
-        if ($mentorshipId) {
-            $success = $messageModel->sendMentorshipMessage($userId, $mentorshipId, $messageContent);
-        } elseif ($receiverId) {
-            $success = $messageModel->sendDirectMessage($userId, $receiverId, $messageContent);
-        }
-        
-        if ($success) {
-            // Refresh messages
-            if ($mentorshipId) {
-                $messages = $messageModel->getMentorshipMessages($mentorshipId);
-            } elseif ($receiverId) {
-                $messages = $messageModel->getDirectMessages($userId, $receiverId);
-            }
-            // Refresh conversations
-            $conversations = $messageModel->getConversations($userId);
-        }
+        markMessagesAsRead($selectedMentorshipId, $userId);
     }
 }
 
@@ -141,6 +229,51 @@ $pageTitle = 'Messages - Menteego';
         .chat-input {
             border-radius: 0 0 0.375rem 0.375rem;
             border-top: none;
+        }
+        .resource-item {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .resource-item:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .resource-icon {
+            font-size: 1.5rem;
+            margin-right: 0.5rem;
+        }
+        .resource-download {
+            font-size: 0.875rem;
+            opacity: 0.8;
+            margin-top: 0.5rem;
+        }
+        .file-upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 0.375rem;
+            padding: 2rem;
+            text-align: center;
+            background: #f8f9fa;
+            transition: border-color 0.3s;
+        }
+        .file-upload-area:hover {
+            border-color: #007bff;
+        }
+        .file-upload-area.dragover {
+            border-color: #007bff;
+            background: #e3f2fd;
+        }
+        .alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 300px;
         }
     </style>
 </head>
@@ -237,11 +370,10 @@ $pageTitle = 'Messages - Menteego';
                         <?php else: ?>
                             <?php foreach ($conversations as $conversation): ?>
                                 <?php 
-                                $isActive = ($selectedMentorshipId && $conversation['mentorship_id'] == $selectedMentorshipId) ||
-                                           ($selectedUserId && $conversation['user_id'] == $selectedUserId);
+                                $isActive = ($selectedMentorshipId && $conversation['mentorship_id'] == $selectedMentorshipId);
                                 ?>
                                 <div class="conversation-item p-3 border-bottom <?php echo $isActive ? 'active' : ''; ?>"
-                                     onclick="window.location.href='/messages.php?<?php echo $conversation['mentorship_id'] ? 'mentorship=' . $conversation['mentorship_id'] : 'user=' . $conversation['user_id']; ?>'">
+                                     onclick="window.location.href='/messages.php?mentorship=<?php echo $conversation['mentorship_id']; ?>'">
                                     <div class="d-flex align-items-center">
                                         <img src="<?php echo $conversation['profile_image'] ? 'uploads/profiles/' . $conversation['profile_image'] : 'assets/images/default-avatar.png'; ?>" 
                                              class="rounded-circle me-3" width="50" height="50" alt="">
@@ -260,11 +392,9 @@ $pageTitle = 'Messages - Menteego';
                                             <p class="mb-0 text-muted small">
                                                 <?php echo $conversation['last_message'] ? htmlspecialchars(substr($conversation['last_message'], 0, 50)) . (strlen($conversation['last_message']) > 50 ? '...' : '') : 'No messages yet'; ?>
                                             </p>
-                                            <?php if ($conversation['mentorship_id']): ?>
-                                                <small class="text-primary">
-                                                    <i class="fas fa-handshake me-1"></i>Mentorship
-                                                </small>
-                                            <?php endif; ?>
+                                            <small class="text-primary">
+                                                <i class="fas fa-handshake me-1"></i>Mentorship
+                                            </small>
                                         </div>
                                     </div>
                                 </div>
@@ -289,13 +419,14 @@ $pageTitle = 'Messages - Menteego';
                                 <small class="text-muted">
                                     <?php echo htmlspecialchars($otherUser['department']); ?> • 
                                     <?php echo ucfirst($otherUser['year_of_study']); ?> Year
-                                    <?php if ($mentorship): ?>
-                                        <span class="badge bg-primary ms-2">Mentorship</span>
-                                    <?php endif; ?>
+                                    <span class="badge bg-primary ms-2">Mentorship</span>
                                 </small>
                             </div>
                             <div class="ms-auto">
-                                <a href="/profile.php?id=<?php echo $otherUser['id']; ?>" class="btn btn-sm btn-outline-primary">
+                                <button class="btn btn-sm btn-outline-primary me-2" onclick="toggleResources()">
+                                    <i class="fas fa-share-alt me-1"></i>Share Resources
+                                </button>
+                                <a href="/profile.php?id=<?php echo $otherUser['id']; ?>" class="btn btn-sm btn-outline-secondary">
                                     <i class="fas fa-user me-1"></i>View Profile
                                 </a>
                             </div>
@@ -312,7 +443,23 @@ $pageTitle = 'Messages - Menteego';
                                 <?php foreach ($messages as $message): ?>
                                     <div class="message <?php echo $message['sender_id'] == $userId ? 'own' : 'other'; ?>">
                                         <div class="message-bubble">
-                                            <?php echo nl2br(htmlspecialchars($message['content'])); ?>
+                                            <?php 
+                                            // Check if message contains a file link (resource)
+                                            if (strpos($message['message'], 'uploads/resources/') !== false) {
+                                                $fileName = basename($message['message']);
+                                                $filePath = $message['message'];
+                                                echo '<div class="resource-item" onclick="downloadResource(\'' . htmlspecialchars($filePath) . '\', \'' . htmlspecialchars($fileName) . '\')">';
+                                                echo '<i class="fas fa-file-alt resource-icon"></i>';
+                                                echo '<strong>' . htmlspecialchars($fileName) . '</strong><br>';
+                                                echo '<small class="text-muted">Shared resource</small>';
+                                                echo '<div class="resource-download">';
+                                                echo '<i class="fas fa-download me-1"></i>Click to download';
+                                                echo '</div>';
+                                                echo '</div>';
+                                            } else {
+                                                echo nl2br(htmlspecialchars($message['message']));
+                                            }
+                                            ?>
                                         </div>
                                         <div class="message-time">
                                             <?php echo date('M j, Y \a\t g:i A', strtotime($message['created_at'])); ?>
@@ -322,19 +469,40 @@ $pageTitle = 'Messages - Menteego';
                             <?php endif; ?>
                         </div>
 
+                        <!-- Resource Sharing Modal -->
+                        <div class="modal fade" id="resourceModal" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Share Resources</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="file-upload-area" id="fileUploadArea">
+                                            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                            <h6>Drag and drop files here</h6>
+                                            <p class="text-muted">or click to browse</p>
+                                            <input type="file" id="fileInput" multiple style="display: none;">
+                                        </div>
+                                        <div id="selectedFiles" class="mt-3"></div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="button" class="btn btn-primary" onclick="shareResources()">Share</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Message Input -->
                         <div class="card-footer p-0">
-                            <form method="POST" class="d-flex">
-                                <?php if ($mentorship): ?>
-                                    <input type="hidden" name="mentorship_id" value="<?php echo $mentorship['id']; ?>">
-                                <?php else: ?>
-                                    <input type="hidden" name="receiver_id" value="<?php echo $otherUser['id']; ?>">
-                                <?php endif; ?>
+                            <form id="messageForm" class="d-flex">
+                                <input type="hidden" name="mentorship_id" value="<?php echo $mentorship['id']; ?>">
                                 
                                 <input type="text" class="form-control chat-input border-0" 
-                                       name="message_content" placeholder="Type your message..." 
+                                       name="message_content" id="messageInput" placeholder="Type your message..." 
                                        required autocomplete="off">
-                                <button type="submit" class="btn btn-primary px-4">
+                                <button type="submit" class="btn btn-primary px-4" id="sendButton">
                                     <i class="fas fa-paper-plane"></i>
                                 </button>
                             </form>
@@ -366,10 +534,26 @@ $pageTitle = 'Messages - Menteego';
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Custom JS -->
-    <script src="assets/js/main.js"></script>
     
     <script>
+        // Show alert function
+        function showAlert(message, type = 'info') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(alertDiv);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+
         // Auto-scroll to bottom of messages
         function scrollToBottom() {
             const chatMessages = document.getElementById('chatMessages');
@@ -383,49 +567,218 @@ $pageTitle = 'Messages - Menteego';
             scrollToBottom();
         });
 
-        // Auto-refresh messages every 10 seconds
-        setInterval(function() {
-            const currentUrl = window.location.href;
-            if (currentUrl.includes('mentorship=') || currentUrl.includes('user=')) {
-                // Only refresh if we're in an active conversation
-                fetch(currentUrl, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                })
-                .then(response => response.text())
-                .then(html => {
-                    // Extract just the messages part and update
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html, 'text/html');
-                    const newMessages = doc.getElementById('chatMessages');
-                    const currentMessages = document.getElementById('chatMessages');
-                    
-                    if (newMessages && currentMessages) {
-                        const wasAtBottom = currentMessages.scrollTop >= (currentMessages.scrollHeight - currentMessages.clientHeight - 10);
-                        currentMessages.innerHTML = newMessages.innerHTML;
-                        
-                        if (wasAtBottom) {
-                            scrollToBottom();
-                        }
-                    }
-                })
-                .catch(error => console.log('Auto-refresh failed:', error));
-            }
-        }, 10000);
+        // Handle message form submission with AJAX
+        const messageForm = document.getElementById('messageForm');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
 
-        // Handle form submission to auto-scroll
-        document.querySelector('form')?.addEventListener('submit', function() {
-            setTimeout(scrollToBottom, 100);
-        });
+        if (messageForm) {
+            messageForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const message = messageInput.value.trim();
+                const mentorshipId = document.querySelector('input[name="mentorship_id"]').value;
+                
+                if (!message) {
+                    showAlert('Please enter a message', 'warning');
+                    return;
+                }
+                
+                // Disable form during submission
+                sendButton.disabled = true;
+                sendButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                
+                try {
+                    console.log('Sending message:', { message, mentorship_id: mentorshipId });
+                    
+                    const response = await fetch('/api/messages/send-message.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message_content: message,
+                            mentorship_id: mentorshipId
+                        })
+                    });
+                    
+                    console.log('Response status:', response.status);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const responseText = await response.text();
+                    console.log('Response text:', responseText);
+                    
+                    let result;
+                    try {
+                        result = JSON.parse(responseText);
+                    } catch (parseError) {
+                        console.error('JSON parse error:', parseError);
+                        throw new Error('Invalid JSON response from server: ' + responseText);
+                    }
+                    
+                    console.log('Parsed result:', result);
+                    
+                    if (result.success) {
+                        showAlert('Message sent successfully!', 'success');
+                        messageInput.value = '';
+                        
+                        // Reload the page to show the new message
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        showAlert(result.message || 'Failed to send message', 'danger');
+                    }
+                } catch (error) {
+                    console.error('Error sending message:', error);
+                    showAlert('Network error: ' + error.message, 'danger');
+                } finally {
+                    // Re-enable form
+                    sendButton.disabled = false;
+                    sendButton.innerHTML = '<i class="fas fa-paper-plane"></i>';
+                }
+            });
+        }
 
         // Enter key to send message
-        document.querySelector('input[name="message_content"]')?.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.closest('form').submit();
+        if (messageInput) {
+            messageInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    messageForm.dispatchEvent(new Event('submit'));
+                }
+            });
+        }
+
+        // Download resource function
+        function downloadResource(filePath, fileName) {
+            try {
+                // Create a temporary link element
+                const link = document.createElement('a');
+                link.href = filePath;
+                link.download = fileName;
+                link.target = '_blank';
+                
+                // Append to body, click, and remove
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showAlert('Download started: ' + fileName, 'success');
+            } catch (error) {
+                console.error('Download error:', error);
+                showAlert('Failed to download file. Please try again.', 'danger');
             }
-        });
+        }
+
+        // Resource sharing functionality
+        let selectedFiles = [];
+
+        function toggleResources() {
+            const modal = new bootstrap.Modal(document.getElementById('resourceModal'));
+            modal.show();
+        }
+
+        // File upload handling
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        if (fileUploadArea && fileInput) {
+            fileUploadArea.addEventListener('click', () => fileInput.click());
+
+            fileUploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                fileUploadArea.classList.add('dragover');
+            });
+
+            fileUploadArea.addEventListener('dragleave', () => {
+                fileUploadArea.classList.remove('dragover');
+            });
+
+            fileUploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                fileUploadArea.classList.remove('dragover');
+                const files = Array.from(e.dataTransfer.files);
+                handleFiles(files);
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                const files = Array.from(e.target.files);
+                handleFiles(files);
+            });
+        }
+
+        function handleFiles(files) {
+            selectedFiles = files;
+            displaySelectedFiles();
+        }
+
+        function displaySelectedFiles() {
+            const container = document.getElementById('selectedFiles');
+            container.innerHTML = '';
+
+            selectedFiles.forEach((file, index) => {
+                const fileDiv = document.createElement('div');
+                fileDiv.className = 'd-flex align-items-center justify-content-between p-2 bg-light rounded mb-2';
+                fileDiv.innerHTML = `
+                    <div>
+                        <i class="fas fa-file me-2"></i>
+                        <span>${file.name}</span>
+                        <small class="text-muted">(${(file.size / 1024 / 1024).toFixed(2)} MB)</small>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(${index})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                container.appendChild(fileDiv);
+            });
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            displaySelectedFiles();
+        }
+
+        async function shareResources() {
+            if (selectedFiles.length === 0) {
+                showAlert('Please select files to share', 'warning');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('mentorship_id', '<?php echo $mentorship['id'] ?? ''; ?>');
+
+            selectedFiles.forEach(file => {
+                formData.append('files[]', file);
+            });
+
+            try {
+                const response = await fetch('/api/messages/send-resource.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert('Resources shared successfully!', 'success');
+                    // Close modal and refresh page
+                    bootstrap.Modal.getInstance(document.getElementById('resourceModal')).hide();
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    showAlert('Failed to share resources: ' + result.message, 'danger');
+                }
+            } catch (error) {
+                console.error('Error sharing resources:', error);
+                showAlert('Failed to share resources. Please try again.', 'danger');
+            }
+        }
     </script>
 </body>
 </html>

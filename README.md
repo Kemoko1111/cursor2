@@ -1,340 +1,250 @@
-# Menteego - Mentor-Mentee Matching Platform
+# Menteego - Mentorship Platform
 
-## Overview
+## 📋 Project Overview
 
-Menteego is a web-based mentor-mentee matching platform designed specifically for the ACES (Academic Computing Excellence Society) organization. The platform intelligently matches mentors with mentees based on user-defined preferences, skills, and availability.
+**Menteego** is a comprehensive mentorship platform designed to connect mentors and mentees in an educational environment. The platform facilitates meaningful mentorship relationships through an intuitive interface, real-time messaging, and resource sharing capabilities.
 
-## Features
+## 🎯 Key Features
 
-### Core Functionality
-- **User Registration & Authentication**
-  - ACES domain email verification
-  - Secure password handling with bcrypt
-  - Email verification system
-  - Password reset functionality
+### 🔐 Authentication & User Management
+- **User Registration & Login**: Secure authentication system
+- **Role-Based Access**: Separate interfaces for mentors and mentees
+- **Profile Management**: Complete user profiles with academic information
+- **Session Management**: Secure session handling
 
-- **Intelligent Matching System**
-  - Skill-based mentor-mentee matching
-  - Availability scheduling
-  - Department and academic year filtering
-  - Preference-based recommendations
+### 👥 Mentorship System
+- **Mentor Browsing**: Mentees can browse and discover available mentors
+- **Mentorship Requests**: Mentees can send requests to mentors
+- **Request Management**: Mentors can view and respond to pending requests
+- **Active Mentorships**: Track ongoing mentorship relationships
 
-- **Mentorship Management**
-  - Request system (mentees can send multiple requests)
-  - Mentor capacity limits (maximum 3 mentees)
-  - Mentee restriction (only 1 active mentor at a time)
-  - Accept/reject request functionality
+### 💬 Real-Time Messaging
+- **AJAX-Powered Chat**: Instant message sending without page reloads
+- **Conversation Management**: Organized chat interface
+- **Message History**: Complete conversation history
+- **Read Status**: Track message read status
 
-- **Messaging System**
-  - Real-time messaging between mentors and mentees
-  - Message history and threading
-  - Unread message indicators
-  - Email notifications for new messages
+### 📁 Resource Sharing
+- **File Upload**: Drag & drop file sharing
+- **Multiple File Support**: Share multiple files simultaneously
+- **File Validation**: Size and type validation
+- **Resource Display**: Special styling for shared resources
 
-- **User Profile Management**
-  - Comprehensive profile creation
-  - Skill management (teaching and learning)
-  - Profile image upload
-  - Availability scheduling
+### 🎨 User Interface
+- **Responsive Design**: Works on desktop and mobile devices
+- **Modern UI**: Clean, professional interface using Bootstrap
+- **Intuitive Navigation**: Easy-to-use navigation system
+- **Real-Time Feedback**: Success/error alerts and loading states
 
-- **Notification System**
-  - In-app notifications
-  - Email notifications for key events
-  - Notification preferences
-
-- **Admin Dashboard**
-  - User management
-  - Mentorship oversight
-  - System statistics
-  - Role-based access control
-
-### Technical Features
-- **Modern UI/UX**
-  - Responsive Bootstrap 5 design
-  - Modern gradient themes
-  - Mobile-friendly interface
-  - Accessibility considerations
-
-- **Security**
-  - SQL injection prevention with PDO
-  - CSRF protection
-  - Session management
-  - Input sanitization
-  - Role-based access control
-
-- **Database Design**
-  - Normalized MySQL database
-  - Proper indexing for performance
-  - Foreign key constraints
-  - Audit trails and logging
-
-## Technology Stack
+## 🛠 Technology Stack
 
 ### Backend
-- **PHP 7.4+** - Server-side scripting
-- **MySQL 8.0+** - Database management
-- **PDO** - Database abstraction layer
+- **PHP 8.0+**: Server-side logic and API endpoints
+- **MySQL**: Database management system
+- **PDO**: Secure database connections
+- **Session Management**: User authentication and state management
 
 ### Frontend
-- **HTML5** - Markup
-- **CSS3** - Styling with custom variables
-- **JavaScript (ES6+)** - Client-side functionality
-- **Bootstrap 5.3** - CSS framework
-- **Font Awesome 6** - Icons
+- **HTML5**: Semantic markup structure
+- **CSS3**: Styling and animations
+- **JavaScript (ES6+)**: Client-side interactivity
+- **Bootstrap 5.3**: Responsive UI framework
+- **Font Awesome**: Icon library
 
-### Development Tools
-- **Git** - Version control
-- **Composer** (optional) - Dependency management
-- **PHPMailer** (optional) - Enhanced email functionality
+### Database
+- **MySQL**: Relational database
+- **Tables**: users, mentorships, mentorship_requests, messages, notifications
 
-## Installation
-
-### Prerequisites
-- Web server (Apache/Nginx)
-- PHP 7.4 or higher
-- MySQL 8.0 or higher
-- mod_rewrite enabled (for Apache)
-
-### Setup Instructions
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/your-org/menteego.git
-   cd menteego
-   ```
-
-2. **Configure the database**
-   - Create a MySQL database named `menteego_db`
-   - Import the schema from `database/schema.sql`
-   ```sql
-   mysql -u root -p menteego_db < database/schema.sql
-   ```
-
-3. **Configure environment variables**
-   - Copy `.env.example` to `.env`
-   - Update database credentials and email settings
-   ```bash
-   cp .env.example .env
-   ```
-
-4. **Set up file permissions**
-   ```bash
-   chmod 755 uploads/
-   chmod 755 uploads/profiles/
-   ```
-
-5. **Configure web server**
-   - Set document root to the project directory
-   - Enable mod_rewrite for Apache
-   - Configure virtual host if needed
-
-6. **Test the installation**
-   - Navigate to your domain/localhost
-   - You should see the Menteego homepage
-
-## Configuration
-
-### Environment Variables
-
-```bash
-# Database Configuration
-DB_HOST=localhost
-DB_NAME=menteego_db
-DB_USER=root
-DB_PASS=your_password
-
-# Email Configuration
-MAIL_HOST=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USERNAME=your-email@gmail.com
-MAIL_PASSWORD=your-app-password
-
-# Organization Settings
-ORG_NAME="ACES - Academic Computing Excellence Society"
-ORG_EMAIL=admin@aces.org
-ORG_DOMAIN=aces.org
-```
-
-### Database Configuration
-
-The application uses a normalized database design with the following key tables:
-- `users` - User accounts and profiles
-- `skills` - Available skills in the system
-- `user_skills` - Many-to-many relationship for user skills
-- `mentorship_requests` - Mentorship requests
-- `mentorships` - Active mentorship relationships
-- `messages` - Messaging system
-- `notifications` - System notifications
-
-## Usage
-
-### For Students (Mentees)
-
-1. **Registration**
-   - Register with your ACES email address
-   - Complete your profile with academic information
-   - Specify skills you want to learn
-
-2. **Finding Mentors**
-   - Browse available mentors
-   - Use filters to find suitable matches
-   - View mentor profiles and skills
-
-3. **Requesting Mentorship**
-   - Send mentorship requests to multiple mentors
-   - Include personal message and goals
-   - Wait for mentor responses
-
-4. **Active Mentorship**
-   - Communicate through the messaging system
-   - Track mentorship progress
-   - Complete mentorship when goals are achieved
-
-### For Mentors
-
-1. **Registration**
-   - Register with your ACES email address
-   - Complete your profile with expertise areas
-   - Specify skills you can teach
-   - Set your availability schedule
-
-2. **Managing Requests**
-   - Review incoming mentorship requests
-   - Accept or decline based on capacity and fit
-   - Provide feedback to mentees
-
-3. **Mentoring**
-   - Guide up to 3 mentees simultaneously
-   - Use messaging system for communication
-   - Track mentee progress and goals
-
-### For Administrators
-
-1. **User Management**
-   - View and manage all users
-   - Suspend or activate accounts
-   - Assign roles and permissions
-
-2. **System Oversight**
-   - Monitor mentorship activities
-   - View system statistics
-   - Manage skills and categories
-
-## File Structure
+## 📁 Project Structure
 
 ```
 menteego/
-├── assets/
-│   ├── css/
-│   │   └── style.css
-│   ├── js/
-│   │   └── main.js
-│   └── images/
+├── api/
+│   ├── mentor/
+│   │   └── respond-request.php
+│   └── messages/
+│       ├── send-message.php
+│       └── send-resource.php
 ├── auth/
 │   ├── login.php
 │   ├── register.php
 │   └── logout.php
-├── config/
-│   ├── app.php
-│   └── database.php
-├── database/
-│   └── schema.sql
-├── models/
-│   ├── User.php
-│   ├── Mentorship.php
-│   └── Message.php
-├── services/
-│   └── EmailService.php
+├── assets/
+│   ├── css/
+│   ├── js/
+│   └── images/
 ├── uploads/
-│   └── profiles/
-├── index.php
+│   ├── profiles/
+│   └── resources/
+├── config/
+│   └── app.php
+├── messages.php
+├── mentor-requests.php
+├── browse-mentors.php
 ├── dashboard.php
+├── setup-database.php
 └── README.md
 ```
 
-## Security Considerations
+## 🚀 Installation & Setup
 
-- **Input Validation**: All user inputs are sanitized and validated
-- **SQL Injection Prevention**: Using PDO prepared statements
-- **Password Security**: Bcrypt hashing with salt
-- **Session Security**: Secure session configuration
-- **Email Domain Restriction**: Only ACES domain emails allowed
-- **Role-Based Access**: Proper authorization checks
-- **File Upload Security**: Type and size validation for uploads
+### Prerequisites
+- PHP 8.0 or higher
+- MySQL 5.7 or higher
+- Web server (Apache/Nginx)
+- Modern web browser
 
-## Browser Support
+### Installation Steps
 
-Menteego supports all modern browsers:
-- Chrome 70+
-- Firefox 65+
-- Safari 12+
-- Edge 79+
-- Opera 57+
+1. **Clone/Download Project**
+   ```bash
+   git clone [repository-url]
+   cd menteego
+   ```
 
-## Performance Considerations
+2. **Database Setup**
+   - Create MySQL database
+   - Import database schema or run `setup-database.php`
+   - Update database credentials in `config/app.php`
 
-- **Database Indexing**: Proper indexes on frequently queried columns
-- **Image Optimization**: Automatic image resizing for uploads
-- **Caching**: Browser caching for static assets
-- **Lazy Loading**: Progressive loading for large datasets
-- **CDN Integration**: Using CDN for Bootstrap and Font Awesome
+3. **File Permissions**
+   ```bash
+   chmod 755 uploads/
+   chmod 755 uploads/profiles/
+   chmod 755 uploads/resources/
+   ```
 
-## Contributing
+4. **Configuration**
+   - Update database credentials in `config/app.php`
+   - Set appropriate file upload limits in PHP configuration
+   - Configure web server for proper routing
+
+5. **Access Platform**
+   - Navigate to your web server URL
+   - Register as a mentor or mentee
+   - Start using the platform
+
+## 👥 User Roles & Workflows
+
+### Mentee Workflow
+1. **Registration**: Create account as mentee
+2. **Browse Mentors**: Search and view available mentors
+3. **Send Requests**: Request mentorship from chosen mentors
+4. **Wait for Acceptance**: Monitor request status
+5. **Start Messaging**: Communicate once request is accepted
+6. **Share Resources**: Upload and share files with mentor
+
+### Mentor Workflow
+1. **Registration**: Create account as mentor
+2. **Profile Setup**: Complete academic and professional profile
+3. **Review Requests**: Check pending mentorship requests
+4. **Accept/Reject**: Respond to mentee requests
+5. **Active Mentorships**: Manage ongoing relationships
+6. **Communication**: Message mentees and share resources
+
+## 🔧 API Endpoints
+
+### Authentication
+- `POST /auth/login.php` - User login
+- `POST /auth/register.php` - User registration
+- `GET /auth/logout.php` - User logout
+
+### Mentorship
+- `POST /api/mentor/respond-request.php` - Respond to mentorship requests
+
+### Messaging
+- `POST /api/messages/send-message.php` - Send text messages
+- `POST /api/messages/send-resource.php` - Share files
+
+## 🗄 Database Schema
+
+### Core Tables
+- **users**: User accounts and profiles
+- **mentorships**: Active mentorship relationships
+- **mentorship_requests**: Pending mentorship requests
+- **messages**: Chat messages and shared resources
+- **notifications**: System notifications
+
+## 🔒 Security Features
+
+- **SQL Injection Prevention**: Prepared statements with PDO
+- **XSS Protection**: HTML escaping for user input
+- **CSRF Protection**: Session-based security
+- **File Upload Security**: Validation and secure storage
+- **Password Hashing**: Secure password storage
+
+## 📱 Responsive Design
+
+- **Mobile-First**: Optimized for mobile devices
+- **Bootstrap Grid**: Responsive layout system
+- **Touch-Friendly**: Optimized for touch interactions
+- **Cross-Browser**: Compatible with modern browsers
+
+## 🎨 UI/UX Features
+
+- **Modern Design**: Clean, professional interface
+- **Intuitive Navigation**: Easy-to-use navigation
+- **Real-Time Feedback**: Loading states and alerts
+- **Accessibility**: Screen reader friendly
+- **Performance**: Optimized for fast loading
+
+## 🔄 Real-Time Features
+
+- **AJAX Messaging**: Instant message sending
+- **Live Updates**: Real-time conversation updates
+- **File Sharing**: Instant resource sharing
+- **Status Updates**: Real-time request status
+
+## 📊 Performance Optimizations
+
+- **Database Indexing**: Optimized database queries
+- **Image Optimization**: Compressed profile images
+- **Caching**: Session-based caching
+- **Minified Assets**: Optimized CSS and JavaScript
+
+## 🛡 Error Handling
+
+- **Graceful Degradation**: System continues working with errors
+- **User-Friendly Messages**: Clear error explanations
+- **Logging**: Comprehensive error logging
+- **Recovery**: Automatic error recovery where possible
+
+## 🔮 Future Enhancements
+
+- **Video Calls**: Real-time video communication
+- **Calendar Integration**: Schedule meetings
+- **Progress Tracking**: Monitor mentorship progress
+- **Analytics Dashboard**: Usage statistics
+- **Mobile App**: Native mobile application
+- **Advanced Search**: Enhanced mentor discovery
+- **Group Mentorship**: Multiple mentees per mentor
+
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
-## Development Guidelines
-
-- Follow PSR-4 autoloading standards
-- Use meaningful variable and function names
-- Comment complex logic
-- Validate all inputs
-- Handle errors gracefully
-- Write responsive CSS
-- Test across different browsers
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Database Connection Errors**
-   - Check database credentials in `.env`
-   - Verify MySQL service is running
-   - Ensure database exists
-
-2. **Email Not Sending**
-   - Verify SMTP settings
-   - Check email credentials
-   - Ensure less secure apps are enabled (Gmail)
-
-3. **File Upload Issues**
-   - Check directory permissions
-   - Verify upload size limits
-   - Ensure proper file types
-
-4. **Session Issues**
-   - Check PHP session configuration
-   - Verify session directory permissions
-   - Clear browser cookies
-
-## License
+## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Support
+## 📞 Support
 
 For support and questions:
-- Email: admin@aces.org
-- Create an issue on GitHub
-- Contact the ACES technical team
+- Create an issue in the repository
+- Contact the development team
+- Check the documentation
 
-## Acknowledgments
+## 🏆 Acknowledgments
 
-- ACES organization for project requirements
-- Bootstrap team for the CSS framework
-- Font Awesome for icons
-- PHP community for excellent documentation
+- **Bootstrap Team**: For the excellent UI framework
+- **Font Awesome**: For the comprehensive icon library
+- **PHP Community**: For the robust backend language
+- **MySQL Team**: For the reliable database system
+
+---
+
+**Menteego** - Connecting mentors and mentees for meaningful learning relationships.

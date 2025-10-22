@@ -1,8 +1,12 @@
 <?php
 require_once 'config/app.php';
+require_once __DIR__ . '/middleware/auth.php';
 
-// Check if user is logged in
-if (!isset($_SESSION['user_id'])) {
+if (!isset($_SESSION['user_id'])) redirect('/auth/login.php');
+$userModel = new User();
+$currentUser = $userModel->getUserById($_SESSION['user_id']);
+if (!$currentUser) {
+    session_destroy();
     redirect('/auth/login.php');
 }
 
@@ -14,18 +18,27 @@ $userModel = new User();
 $mentorshipModel = new Mentorship();
 $messageModel = new Message();
 
-// Get current user data
-$currentUser = $userModel->getUserById($userId);
-if (!$currentUser) {
-    session_destroy();
-    redirect('/auth/login.php');
+// Handle mentorship deletion
+$deleteSuccess = '';
+$deleteError = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_mentorship_id'])) {
+    $mentorshipId = intval($_POST['delete_mentorship_id']);
+    if ($mentorshipModel->deleteMentorship($mentorshipId, $userId)) {
+        $deleteSuccess = 'Mentorship deleted successfully.';
+        // Refresh active mentorships after deletion
+        $activeMentorships = $mentorshipModel->getActiveMentorships($userId, $userRole);
+    } else {
+        $deleteError = 'Failed to delete mentorship or unauthorized.';
+    }
 }
 
 // Get user statistics
 $stats = $userModel->getUserStats($userId);
 
-// Get active mentorships
-$activeMentorships = $mentorshipModel->getActiveMentorships($userId, $userRole);
+// Get active mentorships (if not already refreshed)
+if (!isset($activeMentorships)) {
+    $activeMentorships = $mentorshipModel->getActiveMentorships($userId, $userRole);
+}
 
 // Get recent requests
 if ($userRole === 'mentor') {
@@ -39,19 +52,14 @@ $conversations = $messageModel->getConversations($userId);
 
 $pageTitle = 'Dashboard - Menteego';
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $pageTitle; ?></title>
-    
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- Custom CSS -->
     <link href="assets/css/style.css" rel="stylesheet">
 </head>
 <body class="bg-light">
@@ -61,11 +69,9 @@ $pageTitle = 'Dashboard - Menteego';
             <a class="navbar-brand fw-bold" href="/dashboard.php">
                 <i class="fas fa-graduation-cap me-2"></i>Menteego
             </a>
-            
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
@@ -89,7 +95,6 @@ $pageTitle = 'Dashboard - Menteego';
                         </a>
                     </li>
                 </ul>
-                
                 <ul class="navbar-nav">
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
@@ -149,6 +154,11 @@ $pageTitle = 'Dashboard - Menteego';
 
     <!-- Main Content -->
     <div class="container my-5">
+        <?php if ($deleteSuccess): ?>
+            <div class="alert alert-success"> <?php echo $deleteSuccess; ?> </div>
+        <?php elseif ($deleteError): ?>
+            <div class="alert alert-danger"> <?php echo $deleteError; ?> </div>
+        <?php endif; ?>
         <!-- Statistics Cards -->
         <div class="row g-4 mb-5">
             <div class="col-md-3">
@@ -161,7 +171,6 @@ $pageTitle = 'Dashboard - Menteego';
                     </div>
                 </div>
             </div>
-            
             <div class="col-md-3">
                 <div class="stat-card text-center">
                     <div class="stat-number text-warning">
@@ -172,7 +181,6 @@ $pageTitle = 'Dashboard - Menteego';
                     </div>
                 </div>
             </div>
-            
             <div class="col-md-3">
                 <div class="stat-card text-center">
                     <div class="stat-number text-success">
@@ -183,7 +191,6 @@ $pageTitle = 'Dashboard - Menteego';
                     </div>
                 </div>
             </div>
-            
             <div class="col-md-3">
                 <div class="stat-card text-center">
                     <div class="stat-number text-info">
@@ -224,7 +231,6 @@ $pageTitle = 'Dashboard - Menteego';
                                 <div class="d-flex align-items-center p-3 border rounded mb-3 shadow-hover">
                                     <img src="<?php echo $mentorship['profile_image'] ? 'uploads/profiles/' . $mentorship['profile_image'] : 'assets/images/default-avatar.png'; ?>" 
                                          class="rounded-circle me-3" width="60" height="60" alt="">
-                                    
                                     <div class="flex-grow-1">
                                         <h6 class="mb-1 fw-semibold">
                                             <?php echo htmlspecialchars($mentorship['first_name'] . ' ' . $mentorship['last_name']); ?>
@@ -237,7 +243,6 @@ $pageTitle = 'Dashboard - Menteego';
                                             Started: <?php echo date('M j, Y', strtotime($mentorship['start_date'])); ?>
                                         </small>
                                     </div>
-                                    
                                     <div class="text-end">
                                         <?php if ($mentorship['unread_messages'] > 0): ?>
                                             <span class="badge bg-primary rounded-pill mb-2">
@@ -249,10 +254,19 @@ $pageTitle = 'Dashboard - Menteego';
                                                class="btn btn-sm btn-outline-primary me-2">
                                                 <i class="fas fa-comments"></i> Message
                                             </a>
-                                            <a href="/mentorship.php?id=<?php echo $mentorship['id']; ?>" 
-                                               class="btn btn-sm btn-outline-secondary">
+                                            <!-- View button for mentor/mentee profile -->
+                                            <a href="/profile.php?id=<?php
+                                                echo ($userRole === 'mentor') ? $mentorship['mentee_id'] : $mentorship['mentor_id'];
+                                            ?>" class="btn btn-sm btn-outline-secondary">
                                                 <i class="fas fa-eye"></i> View
                                             </a>
+                                            <!-- Delete button for mentorship -->
+                                            <form method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this mentorship?');">
+                                                <input type="hidden" name="delete_mentorship_id" value="<?php echo $mentorship['id']; ?>">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    <i class="fas fa-trash"></i> Delete
+                                                </button>
+                                            </form>
                                         </div>
                                     </div>
                                 </div>
@@ -337,17 +351,11 @@ $pageTitle = 'Dashboard - Menteego';
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Custom JS -->
     <script src="assets/js/main.js"></script>
-    
     <script>
-        // Set current user ID for JavaScript
         window.currentUserId = <?php echo $userId; ?>;
-        
-        // Auto-refresh stats every 30 seconds
         setInterval(function() {
             // This would make an AJAX call to refresh stats
-            // Implementation depends on your API structure
         }, 30000);
     </script>
 </body>
